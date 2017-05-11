@@ -80,29 +80,33 @@ def readFile(name: Text):
         for row in rows:
         	# reshape row into several 3-vectors
         	nums = [float(x) for x in row]
-        	data = np.reshape(np.array(nums), (len(nums)//3, int(3))) 
+        	data = np.reshape(np.array(nums), (len(nums)//3, int(3)))
         	cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]])
         	cands.append(cand)
 
         return cands
 
-
-data = readFile('np.txt')
-times = [d.absoluteDecayTime()*1e15 for d in data] #converts to fs
-
-hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
-pl.hist(times, bins=500, range=(0, 10000))
-pl.savefig('hist.png')
-bin_width = bin_edges[1]-bin_edges[0]
-
-cum = np.cumsum(hist)*bin_width
-time = [(a+b)/2 for a, b in zip(bin_edges[:-1], bin_edges[1:])]
-
-pl.plot(time, cum)
-pl.savefig('graph.png')
-
-po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
-
-print('po', po)
-
 print(hist, len(cum))
+def getLifetime():
+	data = readFile('np.txt')
+	print(data)
+	times = [d.absoluteDecayTime()*1e15 for d in data]
+
+	hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
+	pl.hist(times, bins=500, range=(0, 10000))
+	pl.savefig('hist.png')
+	bin_width = bin_edges[1]-bin_edges[0]
+
+	cum = np.cumsum(hist)*bin_width
+	time = bin_edges[1:]
+
+	pl.plot(time, cum)
+	pl.savefig('graph.png')
+
+	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+
+	print('po', po)
+
+	print(hist, len(cum))
+
+getLifetime()
