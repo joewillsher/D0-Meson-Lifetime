@@ -3,6 +3,8 @@ import csv
 import numpy as np
 from collections import namedtuple
 from scipy.constants import c, physical_constants
+import pylab as pl
+import scipy.optimize as spo
 e = physical_constants['electron volt'][0]
 
 # position 3-vector, units mm
@@ -37,7 +39,7 @@ class CandidateEvent(object):
 		return str
 	
 	def labFrameTravel(self):
-		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3
+		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
 	
 	def absoluteDecayTime(self):
 		# p in a 3 axes is conserved in `D0 --> pi + K` decay
@@ -45,10 +47,11 @@ class CandidateEvent(object):
 		print(pcomps_d0)
 		p_d0 = magnitude(pcomps_d0) * 1e6 * e / c # in SI
 		m0_n = 1864.84 # MeV/c2
-		m0 = m0_n * 1e6 * e / c**2
+		m0 = m0_n * 1e6 * e / c**2 # convert MeV/c* -> kg
 		# un-boosted time in the particle's frame
-		tp = m0 * self.labFrameTravel()  / p_d0
-		print(self.labFrameTravel(), tp)
+		x = self.labFrameTravel()  
+		tp = m0 * x / p_d0
+		print(x, p_d0, m0, tp)
 		return tp
 		
 		
@@ -85,9 +88,21 @@ def readFile(name: Text):
         
 
 data = readFile('np.txt')
-# print(data)
+times = [d.absoluteDecayTime()*1e15 for d in data]
 
-d = data[0]
-print(d)
-time = d.absoluteDecayTime()
-print(str(time*1e15) + ' fs')
+hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
+pl.hist(times, bins=500, range=(0, 10000))
+pl.savefig('hist.png')
+bin_width = bin_edges[1]-bin_edges[0]
+
+cum = np.cumsum(hist)*bin_width
+time = [(a+b)/2 for a, b in zip(bin_edges[:-1], bin_edges[1:])]
+
+pl.plot(time, cum)
+pl.savefig('graph.png')
+
+po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+
+print('po', po)
+
+print(hist, len(cum))
