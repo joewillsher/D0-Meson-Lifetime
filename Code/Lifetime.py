@@ -5,7 +5,10 @@ from collections import namedtuple
 from scipy.constants import c, physical_constants
 import pylab as pl
 import scipy.optimize as spo
+
+# constants
 e = physical_constants['electron volt'][0]
+m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
 # position 3-vector, units mm
 Position = np.array
@@ -15,6 +18,15 @@ Momentum = np.array
 
 def magnitude(v: Position):
 	return np.sqrt(np.sum(v**2))
+
+def momentum_toSI(p: float):
+	return p * 1e6 * e / c # in SI
+
+def mass_toSI(p: float):
+	return p * 1e6 * e / c**2 # in SI
+
+def energy_toSI(p: float):
+	return p * 1e6 # in SI
 
 
 # Keep all data about the type together in a type, so vals for an event are stored next to each other on the heap.
@@ -40,20 +52,34 @@ class CandidateEvent(object):
 
 	def labFrameTravel(self):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
-
-	def absoluteDecayTime(self):
-		# p in a 3 axes is conserved in `D0 --> pi + K` decay
+	
+	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
-		print(pcomps_d0)
-		p_d0 = magnitude(pcomps_d0) * 1e6 * e / c # in SI
-		m0_n = 1864.84 # MeV/c2
-		m0 = m0_n * 1e6 * e / c**2 # convert MeV/c* -> kg
-		# un-boosted time in the particle's frame
-		x = self.labFrameTravel()
-		tp = m0 * x / p_d0
-		print(x, p_d0, m0, tp)
-		return tp
+		return momentum_toSI(magnitude(pcomps_d0))
+	
+	def daughterEnergy(self):
+		p_pi = momentum_toSI(magnitude(self.pd))
+		p_k = momentum_toSI(magnitude(self.kp))
+		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
+		print('p daughter=', p_pi, p_k)
+		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
 
+	def reconstructedD0Mass(self):
+		E_de = self.daughterEnergy()
+		p_d0 = self.pD0()
+		print('de', E_de, p_d0)
+		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
+	
+	def gamma(self):
+		p_d0 = self.pD0()
+		m_d0 = self.reconstructedD0Mass()
+		return p_d0 / (c * m_d0)
+	
+	def decayTime(self):
+		x = self.labFrameTravel()
+		m_d0 = self.reconstructedD0Mass()
+		p_d0 = self.pD0()
+		return x * m_d0 / p_d0
 
 
 # reads a file and returns the D0 candidate events it lists
@@ -87,26 +113,41 @@ def readFile(name: Text):
         return cands
 
 
-def getLifetime():
-	data = readFile('np.txt')
-	print(data)
-	times = [d.absoluteDecayTime()*1e15 for d in data]
-	
-	hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
-	pl.hist(times, bins=500, range=(0, 10000))
-	pl.savefig('hist.png')
-	bin_width = bin_edges[1]-bin_edges[0]
-	
-	cum = np.cumsum(hist)*bin_width
-	time = bin_edges[1:]
-	
-	pl.plot(time, cum)
-	pl.savefig('graph.png')
-	
-	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
-	
-	print('po', po)
-	
-	print(hist, len(cum))
+#get data
+data = readFile('np.txt')
+d = data[0]
+print(d)
+mass, time = d.reconstructedD0Mass(), d.decayTime()
+print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
-getLifetime()
+# mass dist
+masses = [d.reconstructedD0Mass() for d in data]
+pl.hist(masses, bins=500)
+pl.savefig('mass-dist.png')
+
+# gamma dist
+gammas = [d.gamma() for d in data]
+pl.hist(gammas, bins=500)
+pl.savefig('gamma-dist.png')
+
+
+# decay time dist
+times = [d.decayTime()*1e15 for d in data]
+
+pl.hist(times, bins=500, range=(0, 10000))
+pl.savefig('time-hist.png')
+
+# decay time curve
+hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
+bin_width = bin_edges[1]-bin_edges[0]
+
+cum = np.cumsum(hist)*bin_width
+time = bin_edges[1:]
+
+pl.plot(time, cum)
+pl.savefig('decay.png')
+
+# decay time fitting
+po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+print(po)
+
