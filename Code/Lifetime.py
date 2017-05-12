@@ -56,18 +56,20 @@ class CandidateEvent(object):
 	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
 		return momentum_toSI(magnitude(pcomps_d0))
+
+	def pDstar(self):
+		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
+		return momentum_toSI(magnitude(pcomps_dstar))
 	
 	def daughterEnergy(self):
 		p_pi = momentum_toSI(magnitude(self.pd))
 		p_k = momentum_toSI(magnitude(self.kp))
 		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
-		print('p daughter=', p_pi, p_k)
 		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
 
 	def reconstructedD0Mass(self):
 		E_de = self.daughterEnergy()
 		p_d0 = self.pD0()
-		print('de', E_de, p_d0)
 		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
 	
 	def gamma(self):
@@ -80,7 +82,17 @@ class CandidateEvent(object):
 		m_d0 = self.reconstructedD0Mass()
 		p_d0 = self.pD0()
 		return x * m_d0 / p_d0
+	
+	def dStarEnergy(self):
+		E_d0 = self.daughterEnergy()
+		p_pislow = momentum_toSI(magnitude(self.ps))
+		m_pi_si = mass_toSI(m_pi)
+		return E_d0 + np.sqrt((p_pislow*c)**2 + m_pi_si**2 * c**4)
 
+	def reconstructedDstarMass(self):
+		E = self.dStarEnergy()
+		p_dstar = self.pDstar()
+		return np.sqrt(E**2 - (p_dstar*c)**2)/c**2
 
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
@@ -124,11 +136,26 @@ print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 masses = [d.reconstructedD0Mass() for d in data]
 pl.hist(masses, bins=500)
 pl.savefig('mass-dist.png')
+pl.close()
+
+# dstar mass dist
+ds_masses = [d.reconstructedDstarMass() for d in data]
+pl.hist(ds_masses, bins=500)
+pl.savefig('dstar-mass-dist.png')
+pl.close()
+
+# mass difference dist
+mass_diffs = [x1 - x0 for x0, x1 in zip(ds_masses, masses)]
+pl.hist(mass_diffs, bins=500)
+pl.savefig('mass-diff-dist.png')
+pl.close()
+
 
 # gamma dist
 gammas = [d.gamma() for d in data]
 pl.hist(gammas, bins=500)
 pl.savefig('gamma-dist.png')
+pl.close()
 
 
 # decay time dist
@@ -136,6 +163,7 @@ times = [d.decayTime()*1e15 for d in data]
 
 pl.hist(times, bins=500, range=(0, 10000))
 pl.savefig('time-hist.png')
+pl.close()
 
 # decay time curve
 hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
@@ -146,6 +174,7 @@ time = bin_edges[1:]
 
 pl.plot(time, cum)
 pl.savefig('decay.png')
+pl.close()
 
 # decay time fitting
 po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
