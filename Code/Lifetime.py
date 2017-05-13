@@ -156,7 +156,7 @@ pl.savefig('dstar-mass-dist.png')
 pl.close()
 
 # mass difference dist
-mass_diffs = [x1 - x0 for x0, x1 in zip(ds_masses, masses)]
+mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
 pl.hist(mass_diffs, bins=500, histtype='step', fill=False)
 pl.xlabel(r'Mass difference / GeV/$c^2$')
 pl.savefig('mass-diff-dist.png')
