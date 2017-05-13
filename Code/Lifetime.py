@@ -2,7 +2,7 @@ from typing import Text
 import csv
 import numpy as np
 from collections import namedtuple
-from scipy.constants import c, physical_constants
+from scipy.constants import c, hbar, physical_constants
 import pylab as pl
 import scipy.optimize as spo
 
@@ -26,7 +26,16 @@ def mass_toSI(p: float):
 	return p * 1e6 * e / c**2 # in SI
 
 def energy_toSI(p: float):
-	return p * 1e6 # in SI
+	return p * 1e6 * e # in SI
+
+def momentum_toGeV(p: float):
+	return p * 1e-6 * c / e
+
+def mass_toGeV(p: float):
+	return p * 1e-6 * c**2 / e
+
+def energy_toGeV(p: float):
+	return p * 1e-6 / e
 
 
 # Keep all data about the type together in a type, so vals for an event are stored next to each other on the heap.
@@ -133,20 +142,23 @@ mass, time = d.reconstructedD0Mass(), d.decayTime()
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 # mass dist
-masses = [d.reconstructedD0Mass() for d in data]
-pl.hist(masses, bins=500)
+masses = [mass_toGeV(d.reconstructedD0Mass()) for d in data]
+pl.hist(masses, bins=100, histtype='step', fill=False)
+pl.xlabel(r'$D^0$ Mass / GeV/$c^2$')
 pl.savefig('mass-dist.png')
 pl.close()
 
 # dstar mass dist
-ds_masses = [d.reconstructedDstarMass() for d in data]
-pl.hist(ds_masses, bins=500)
+ds_masses = [mass_toGeV(d.reconstructedDstarMass()) for d in data]
+pl.hist(masses, bins=100, histtype='step', fill=False)
+pl.xlabel(r'$D^{+*}$ Mass / GeV/$c^2$')
 pl.savefig('dstar-mass-dist.png')
 pl.close()
 
 # mass difference dist
 mass_diffs = [x1 - x0 for x0, x1 in zip(ds_masses, masses)]
-pl.hist(mass_diffs, bins=500)
+pl.hist(mass_diffs, bins=500, histtype='step', fill=False)
+pl.xlabel(r'Mass difference / GeV/$c^2$')
 pl.savefig('mass-diff-dist.png')
 pl.close()
 
@@ -156,6 +168,13 @@ gammas = [d.gamma() for d in data]
 pl.hist(gammas, bins=500)
 pl.savefig('gamma-dist.png')
 pl.close()
+
+# travel dist
+trav = [d.labFrameTravel() for d in data]
+pl.hist(trav, bins=500, range=(0, 0.04))
+pl.savefig('trav-dist.png')
+pl.close()
+
 
 
 # decay time dist
@@ -167,9 +186,8 @@ pl.close()
 
 # decay time curve
 hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
-bin_width = bin_edges[1]-bin_edges[0]
-
-cum = np.cumsum(hist)*bin_width
+print(np.sum(hist), ' events')
+cum = np.cumsum(hist)
 time = bin_edges[1:]
 
 pl.plot(time, cum)
@@ -178,5 +196,5 @@ pl.close()
 
 # decay time fitting
 po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
-print(po)
-
+print('partial lifetime\t' + str(po[1]) + ' fs')
+# print('partial width   \t' + str(mass_toGeV(hbar/(po[1]*1e-15))) + ' GeV/c2') # TODO: Calculate width
