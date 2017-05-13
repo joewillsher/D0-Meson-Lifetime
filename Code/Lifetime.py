@@ -28,13 +28,13 @@ def mass_toSI(p: float):
 def energy_toSI(p: float):
 	return p * 1e6 * e # in SI
 
-def momentum_toGeV(p: float):
+def momentum_toMeV(p: float):
 	return p * 1e-6 * c / e
 
-def mass_toGeV(p: float):
+def mass_toMeV(p: float):
 	return p * 1e-6 * c**2 / e
 
-def energy_toGeV(p: float):
+def energy_toMeV(p: float):
 	return p * 1e-6 / e
 
 
@@ -142,23 +142,23 @@ mass, time = d.reconstructedD0Mass(), d.decayTime()
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 # mass dist
-masses = [mass_toGeV(d.reconstructedD0Mass()) for d in data]
+masses = [mass_toMeV(d.reconstructedD0Mass()) for d in data]
 pl.hist(masses, bins=100, histtype='step', fill=False)
-pl.xlabel(r'$D^0$ Mass / GeV/$c^2$')
+pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
 pl.savefig('mass-dist.png')
 pl.close()
 
 # dstar mass dist
-ds_masses = [mass_toGeV(d.reconstructedDstarMass()) for d in data]
+ds_masses = [mass_toMeV(d.reconstructedDstarMass()) for d in data]
 pl.hist(masses, bins=100, histtype='step', fill=False)
-pl.xlabel(r'$D^{+*}$ Mass / GeV/$c^2$')
+pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
 pl.savefig('dstar-mass-dist.png')
 pl.close()
 
 # mass difference dist
 mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
 pl.hist(mass_diffs, bins=500, histtype='step', fill=False)
-pl.xlabel(r'Mass difference / GeV/$c^2$')
+pl.xlabel(r'Mass difference / MeV/$c^2$')
 pl.savefig('mass-diff-dist.png')
 pl.close()
 
@@ -180,21 +180,28 @@ pl.close()
 # decay time dist
 times = [d.decayTime()*1e15 for d in data]
 
-pl.hist(times, bins=500, range=(0, 10000))
+pl.hist(times, bins=500, range=(0, 20000))
 pl.savefig('time-hist.png')
 pl.close()
 
 # decay time curve
-hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
-print(np.sum(hist), ' events')
+hist, bin_edges = np.histogram(times, bins=500, range=(0, 20000))
+num_events = np.sum(hist)
+print(num_events, ' events')
 cum = np.cumsum(hist)
 time = bin_edges[1:]
 
-pl.plot(time, cum)
+pl.plot(time, cum, '-b')
 pl.savefig('decay.png')
 pl.close()
 
 # decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+po, po_cov = spo.curve_fit(lambda t, A, tau: A * (1 - np.exp(-t/tau)), time, cum, [num_events, 1500]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+
+pl.plot(time, cum, '-b')
+pl.plot(time, np.vectorize(lambda t: po[0] * (1 - np.exp(-t/po[1])))(time), '-r')
+pl.savefig('decay-fitted.png')
+pl.close()
+
 print('partial lifetime\t' + str(po[1]) + ' fs')
-# print('partial width   \t' + str(mass_toGeV(hbar/(po[1]*1e-15))) + ' GeV/c2') # TODO: Calculate width
+# print('partial width   \t' + str(mass_toMeV(hbar/(po[1]*1e-15))) + ' GeV/c2') # TODO: Calculate width
