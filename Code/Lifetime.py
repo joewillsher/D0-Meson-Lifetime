@@ -5,6 +5,7 @@ from collections import namedtuple
 from scipy.constants import c, hbar, physical_constants
 import pylab as pl
 import scipy.optimize as spo
+import lazy_property
 
 # constants
 e = physical_constants['electron volt'][0]
@@ -59,48 +60,57 @@ class CandidateEvent(object):
 		str += "Ps\t\t" + np.array_str(self.ps) + "\n"
 		return str
 
+	@lazy_property.LazyProperty
 	def labFrameTravel(self):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
 	
+	@lazy_property.LazyProperty
 	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
 		return momentum_toSI(magnitude(pcomps_d0))
 
+	@lazy_property.LazyProperty
 	def pDstar(self):
 		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
 		return momentum_toSI(magnitude(pcomps_dstar))
 	
+	@lazy_property.LazyProperty
 	def daughterEnergy(self):
 		p_pi = momentum_toSI(magnitude(self.pd))
 		p_k = momentum_toSI(magnitude(self.kp))
 		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
 		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
-
+	
+	@lazy_property.LazyProperty
 	def reconstructedD0Mass(self):
-		E_de = self.daughterEnergy()
-		p_d0 = self.pD0()
+		E_de = self.daughterEnergy
+		p_d0 = self.pD0
 		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
 	
+	@lazy_property.LazyProperty
 	def gamma(self):
-		p_d0 = self.pD0()
-		m_d0 = self.reconstructedD0Mass()
+		p_d0 = self.pD0
+		m_d0 = self.reconstructedD0Mass
 		return p_d0 / (c * m_d0)
 	
+	@lazy_property.LazyProperty
 	def decayTime(self):
-		x = self.labFrameTravel()
-		m_d0 = self.reconstructedD0Mass()
-		p_d0 = self.pD0()
+		x = self.labFrameTravel
+		m_d0 = self.reconstructedD0Mass
+		p_d0 = self.pD0
 		return x * m_d0 / p_d0
 	
+	@lazy_property.LazyProperty
 	def dStarEnergy(self):
-		E_d0 = self.daughterEnergy()
+		E_d0 = self.daughterEnergy
 		p_pislow = momentum_toSI(magnitude(self.ps))
 		m_pi_si = mass_toSI(m_pi)
 		return E_d0 + np.sqrt((p_pislow*c)**2 + m_pi_si**2 * c**4)
 
+	@lazy_property.LazyProperty
 	def reconstructedDstarMass(self):
-		E = self.dStarEnergy()
-		p_dstar = self.pDstar()
+		E = self.dStarEnergy
+		p_dstar = self.pDstar
 		return np.sqrt(E**2 - (p_dstar*c)**2)/c**2
 
 # reads a file and returns the D0 candidate events it lists
@@ -138,18 +148,18 @@ def readFile(name: Text):
 data = readFile('np.txt')
 d = data[0]
 print(d)
-mass, time = d.reconstructedD0Mass(), d.decayTime()
+mass, time = d.reconstructedD0Mass, d.decayTime
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 # mass dist
-masses = [mass_toMeV(d.reconstructedD0Mass()) for d in data]
+masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
 pl.hist(masses, bins=100, histtype='step', fill=False)
 pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
 pl.savefig('mass-dist.png')
 pl.close()
 
 # dstar mass dist
-ds_masses = [mass_toMeV(d.reconstructedDstarMass()) for d in data]
+ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
 pl.hist(ds_masses, bins=100, histtype='step', fill=False)
 pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
 pl.savefig('dstar-mass-dist.png')
@@ -164,13 +174,13 @@ pl.close()
 
 
 # gamma dist
-gammas = [d.gamma() for d in data]
+gammas = [d.gamma for d in data]
 pl.hist(gammas, bins=500)
 pl.savefig('gamma-dist.png')
 pl.close()
 
 # travel dist
-trav = [d.labFrameTravel() for d in data]
+trav = [d.labFrameTravel for d in data]
 pl.hist(trav, bins=500, range=(0, 0.04))
 pl.savefig('trav-dist.png')
 pl.close()
@@ -178,7 +188,7 @@ pl.close()
 
 
 # decay time dist
-times = [d.decayTime()*1e12 for d in data]
+times = [d.decayTime*1e12 for d in data]
 
 pl.hist(times, bins=100, range=(0, 10))
 pl.savefig('time-hist.png')
@@ -208,3 +218,7 @@ partial_lifetime = po[1]
 print('partial lifetime\t' + str(partial_lifetime) + ' ps')
 # print(hbar/(partial_lifetime*1e-12), hbar)
 # print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
+
+# takes list of candidate events, cuts them by their mass diff
+def cutEventSet_massDiff(events):
+	pass
