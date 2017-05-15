@@ -63,7 +63,7 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def labFrameTravel(self):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
-	
+
 	@lazy_property.LazyProperty
 	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
@@ -73,33 +73,33 @@ class CandidateEvent(object):
 	def pDstar(self):
 		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
 		return momentum_toSI(magnitude(pcomps_dstar))
-	
+
 	@lazy_property.LazyProperty
 	def daughterEnergy(self):
 		p_pi = momentum_toSI(magnitude(self.pd))
 		p_k = momentum_toSI(magnitude(self.kp))
 		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
 		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
-	
+
 	@lazy_property.LazyProperty
 	def reconstructedD0Mass(self):
 		E_de = self.daughterEnergy
 		p_d0 = self.pD0
 		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
-	
+
 	@lazy_property.LazyProperty
 	def gamma(self):
 		p_d0 = self.pD0
 		m_d0 = self.reconstructedD0Mass
 		return p_d0 / (c * m_d0)
-	
+
 	@lazy_property.LazyProperty
 	def decayTime(self):
 		x = self.labFrameTravel
 		m_d0 = self.reconstructedD0Mass
 		p_d0 = self.pD0
 		return x * m_d0 / p_d0
-	
+
 	@lazy_property.LazyProperty
 	def dStarEnergy(self):
 		E_d0 = self.daughterEnergy
@@ -112,6 +112,11 @@ class CandidateEvent(object):
 		E = self.dStarEnergy
 		p_dstar = self.pDstar
 		return np.sqrt(E**2 - (p_dstar*c)**2)/c**2
+
+	# in MeV
+	@lazy_property.LazyProperty
+	def massDiff_d0dstar(self):
+		return mass_toMeV(self.reconstructedDstarMass - self.reconstructedD0Mass)
 
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
@@ -137,11 +142,113 @@ def readFile(name: Text):
         for row in rows:
         	# reshape row into several 3-vectors
         	nums = [float(x) for x in row]
-        	data = np.reshape(np.array(nums), (len(nums)//3, int(3))) 
+        	data = np.reshape(np.array(nums), (len(nums)//3, int(3)))
         	cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]])
         	cands.append(cand)
 
         return cands
+
+
+
+def plotData(data):
+	# mass dist
+	masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
+	pl.hist(masses, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
+	pl.savefig('mass-dist.png')
+	pl.close()
+
+	# dstar mass dist
+	ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
+	pl.hist(ds_masses, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
+	pl.savefig('dstar-mass-dist.png')
+	pl.close()
+
+	# mass difference dist
+	mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
+	pl.hist(mass_diffs, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'Mass difference / MeV/$c^2$')
+	pl.savefig('mass-diff-dist.png')
+	pl.close()
+
+	# gamma dist
+	gammas = [d.gamma for d in data]
+	pl.hist(gammas, bins=500)
+	pl.savefig('gamma-dist.png')
+	pl.close()
+
+	# travel dist
+	trav = [d.labFrameTravel for d in data]
+	pl.hist(trav, bins=500, range=(0, 0.04))
+	pl.savefig('trav-dist.png')
+	pl.close()
+
+
+	# decay time dist
+	times = [d.decayTime*1e12 for d in data]
+
+	pl.hist(times, bins=100, range=(0, 50))
+	pl.savefig('time-hist.png')
+	pl.close()
+
+	# decay time curve
+	hist, bin_edges = np.histogram(times, bins=500, range=(0, 50))
+	num_events = np.sum(hist)
+	print(num_events, ' events')
+	time = bin_edges[1:]
+
+	pl.plot(time, hist, '-b')
+	pl.xlabel(r'Decay time / ps')
+	pl.savefig('decay.png')
+	pl.close()
+
+	# decay time fitting
+	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+
+	pl.plot(time, hist, '-b')
+	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
+	pl.xlabel(r'Decay time / ps')
+	pl.savefig('decay-fitted.png')
+	pl.close()
+
+	partial_lifetime = po[1]
+	print('partial lifetime\t' + str(partial_lifetime) + ' ps')
+	# print(hbar/(partial_lifetime*1e-12), hbar)
+	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
+
+
+
+# takes list of candidate events, cuts them by their mass diff
+def cutEventSet_massDiff(events):
+
+	def fit_func(dm, bg_A, sig_A, sig_centre, sig_w, r):
+		signal = sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
+		bg = bg_A * (dm-m_pi)**r
+		return signal + bg
+	initial = [20, 220, 146, 2, 0.5]
+
+	diffs = [d.massDiff_d0dstar for d in events]
+
+	hist, bin_edges = np.histogram(diffs, bins=500)
+	masses = bin_edges[1:]
+
+	po, po_cov = spo.curve_fit(fit_func, masses, hist, initial)
+
+	print(po)
+	pl.plot(masses, hist, '-b')
+	pl.plot(masses, fit_func(masses, *po), '-r')
+# 	pl.xlabel(r'Decay time / ps')
+	pl.savefig('cut-fitted.png')
+	pl.close()
+
+	# cut at 4 widths
+	bg_A, sig_A, sig_centre, sig_w, r = po
+	width = 1.2
+	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	print('range', range_low, range_up)
+	return list(filter(lambda event: range_low <= event.massDiff_d0dstar <= range_up, events))
+
 
 
 #get data
@@ -151,74 +258,11 @@ print(d)
 mass, time = d.reconstructedD0Mass, d.decayTime
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
-# mass dist
-masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
-pl.hist(masses, bins=100, histtype='step', fill=False)
-pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
-pl.savefig('mass-dist.png')
-pl.close()
 
-# dstar mass dist
-ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
-pl.hist(ds_masses, bins=100, histtype='step', fill=False)
-pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
-pl.savefig('dstar-mass-dist.png')
-pl.close()
-
-# mass difference dist
-mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
-pl.hist(mass_diffs, bins=500, histtype='step', fill=False)
-pl.xlabel(r'Mass difference / MeV/$c^2$')
-pl.savefig('mass-diff-dist.png')
-pl.close()
-
-
-# gamma dist
-gammas = [d.gamma for d in data]
-pl.hist(gammas, bins=500)
-pl.savefig('gamma-dist.png')
-pl.close()
-
-# travel dist
-trav = [d.labFrameTravel for d in data]
-pl.hist(trav, bins=500, range=(0, 0.04))
-pl.savefig('trav-dist.png')
-pl.close()
-
-
-
-# decay time dist
-times = [d.decayTime*1e12 for d in data]
-
-pl.hist(times, bins=100, range=(0, 10))
-pl.savefig('time-hist.png')
-pl.close()
-
-# decay time curve
-hist, bin_edges = np.histogram(times, bins=500, range=(0, 20))
-num_events = np.sum(hist)
-print(num_events, ' events')
-time = bin_edges[1:]
-
-pl.plot(time, hist, '-b')
-pl.xlabel(r'Decay time / ps')
-pl.savefig('decay.png')
-pl.close()
-
-# decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
-
-pl.plot(time, hist, '-b')
-pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
-pl.xlabel(r'Decay time / ps')
-pl.savefig('decay-fitted.png')
-pl.close()
-
-partial_lifetime = po[1]
-print('partial lifetime\t' + str(partial_lifetime) + ' ps')
-# print(hbar/(partial_lifetime*1e-12), hbar)
-# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
-
-# takes list of candidate events, cuts them by their mass diff
-def cutEventSet_massDiff(events):
-	pass
+filtered = cutEventSet_massDiff(data)
+event = filtered[0]
+d0_c, dstar_c = 1865., 2010.
+width = 15.
+filterMasses = list(filter(lambda event: (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width), filtered))
+# filterMasses = filtered
+plotData(filterMasses)
