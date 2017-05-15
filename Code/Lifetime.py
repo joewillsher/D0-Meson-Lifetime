@@ -150,7 +150,7 @@ pl.close()
 
 # dstar mass dist
 ds_masses = [mass_toMeV(d.reconstructedDstarMass()) for d in data]
-pl.hist(masses, bins=100, histtype='step', fill=False)
+pl.hist(ds_masses, bins=100, histtype='step', fill=False)
 pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
 pl.savefig('dstar-mass-dist.png')
 pl.close()
@@ -188,22 +188,23 @@ pl.close()
 hist, bin_edges = np.histogram(times, bins=500, range=(0, 20))
 num_events = np.sum(hist)
 print(num_events, ' events')
-cum = np.cumsum(hist)
 time = bin_edges[1:]
 
-pl.plot(time, cum, '-b')
+pl.plot(time, hist, '-b')
 pl.xlabel(r'Decay time / ps')
 pl.savefig('decay.png')
 pl.close()
 
 # decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau: A * (1 - np.exp(-t/tau)), time, cum, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
-pl.plot(time, cum, '-b')
-pl.plot(time, np.vectorize(lambda t: po[0] * (1 - np.exp(-t/po[1])))(time), '-r')
+pl.plot(time, hist, '-b')
+pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
 pl.xlabel(r'Decay time / ps')
 pl.savefig('decay-fitted.png')
 pl.close()
 
-print('partial lifetime\t' + str(po[1]) + ' fs')
-# print('partial width   \t' + str(mass_toMeV(hbar/(po[1]*1e-15))) + ' GeV/c2') # TODO: Calculate width
+partial_lifetime = po[1]
+print('partial lifetime\t' + str(partial_lifetime) + ' ps')
+# print(hbar/(partial_lifetime*1e-12), hbar)
+# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
