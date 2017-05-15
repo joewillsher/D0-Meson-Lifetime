@@ -178,28 +178,30 @@ pl.close()
 
 
 # decay time dist
-times = [d.decayTime()*1e15 for d in data]
+times = [d.decayTime()*1e12 for d in data]
 
-pl.hist(times, bins=500, range=(0, 20000))
+pl.hist(times, bins=100, range=(0, 10))
 pl.savefig('time-hist.png')
 pl.close()
 
 # decay time curve
-hist, bin_edges = np.histogram(times, bins=500, range=(0, 20000))
+hist, bin_edges = np.histogram(times, bins=500, range=(0, 20))
 num_events = np.sum(hist)
 print(num_events, ' events')
 cum = np.cumsum(hist)
 time = bin_edges[1:]
 
 pl.plot(time, cum, '-b')
+pl.xlabel(r'Decay time / ps')
 pl.savefig('decay.png')
 pl.close()
 
 # decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau: A * (1 - np.exp(-t/tau)), time, cum, [num_events, 1500]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+po, po_cov = spo.curve_fit(lambda t, A, tau: A * (1 - np.exp(-t/tau)), time, cum, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
 pl.plot(time, cum, '-b')
 pl.plot(time, np.vectorize(lambda t: po[0] * (1 - np.exp(-t/po[1])))(time), '-r')
+pl.xlabel(r'Decay time / ps')
 pl.savefig('decay-fitted.png')
 pl.close()
 
