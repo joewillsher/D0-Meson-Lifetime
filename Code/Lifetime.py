@@ -65,6 +65,15 @@ class CandidateEvent(object):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
 
 	@lazy_property.LazyProperty
+	def pD0_t(self):
+		pcomps_d0 = self.kp+self.pd # in MeV
+		return magnitude(pcomps_d0[0:1])
+	
+	@lazy_property.LazyProperty
+	def pPslow(self):
+		return magnitude(self.ps)
+	
+	@lazy_property.LazyProperty
 	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
 		return momentum_toSI(magnitude(pcomps_d0))
@@ -193,7 +202,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=500, range=(0, 50))
+	hist, bin_edges = np.histogram(times, bins=100, range=(0.15, 10))
 	num_events = np.sum(hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
@@ -204,7 +213,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time fitting
-	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau)+c, time, hist, [num_events, 1.5, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
 	pl.plot(time, hist, '-b')
 	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
@@ -244,7 +253,7 @@ def cutEventSet_massDiff(events):
 
 	# cut at 4 widths
 	bg_A, sig_A, sig_centre, sig_w, r = po
-	width = 1.2
+	width = .5
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
 	return list(filter(lambda event: range_low <= event.massDiff_d0dstar <= range_up, events))
@@ -259,10 +268,27 @@ mass, time = d.reconstructedD0Mass, d.decayTime
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 
-filtered = cutEventSet_massDiff(data)
-event = filtered[0]
+
+filtered = data
+# cut on mass diff
+filtered = cutEventSet_massDiff(filtered)
+# cut on transverse momentum
+filtered = [d for d in filtered if 3000 <= d.pD0_t]
+
+# remove width
 d0_c, dstar_c = 1865., 2010.
-width = 15.
-filterMasses = list(filter(lambda event: (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width), filtered))
-# filterMasses = filtered
-plotData(filterMasses)
+width = 20.
+filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width)]
+
+
+# filtered = [d for d in filtered if d.pPslow >= 1.3e3]
+
+plotData(filtered)
+
+# mass dist
+offs = [d.pD0_t for d in filtered]
+ps = [d.pPslow for d in data]
+pl.hist(offs, bins=100, histtype='step', fill=False)
+pl.savefig('offsets.png')
+pl.close()
+
