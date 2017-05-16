@@ -72,6 +72,10 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def pPslow(self):
 		return magnitude(self.ps)
+
+	@lazy_property.LazyProperty
+	def pPslow_t(self):
+		return magnitude(self.ps[0:1])
 	
 	@lazy_property.LazyProperty
 	def pD0(self):
@@ -202,7 +206,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=100, range=(0.15, 10))
+	hist, bin_edges = np.histogram(times, bins=100, range=(0.4, 10))
 	num_events = np.sum(hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
@@ -227,6 +231,14 @@ def plotData(data):
 	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
 
 
+def plot_compare(accepted, rejected, prop, name):
+	diffs_a, diffs_r = [getattr(d, prop) for d in accepted], [getattr(d, prop) for d in rejected]
+	f, axarr = pl.subplots(2, sharex=True)
+	axarr[0].hist(diffs_a, 100, facecolor='green')
+	axarr[1].hist(diffs_r, 100, facecolor='red')
+	pl.savefig(name+'-compare.png')
+	pl.close()
+
 
 # takes list of candidate events, cuts them by their mass diff
 def cutEventSet_massDiff(events):
@@ -238,7 +250,6 @@ def cutEventSet_massDiff(events):
 	initial = [20, 220, 146, 2, 0.5]
 
 	diffs = [d.massDiff_d0dstar for d in events]
-
 	hist, bin_edges = np.histogram(diffs, bins=500)
 	masses = bin_edges[1:]
 
@@ -253,10 +264,12 @@ def cutEventSet_massDiff(events):
 
 	# cut at 4 widths
 	bg_A, sig_A, sig_centre, sig_w, r = po
-	width = .5
+	width = 1.
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
-	return list(filter(lambda event: range_low <= event.massDiff_d0dstar <= range_up, events))
+	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
+	rejected = [event for event in events if not range_low <= event.massDiff_d0dstar <= range_up]
+	return accepted, rejected
 
 
 
@@ -271,9 +284,16 @@ print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 filtered = data
 # cut on mass diff
-filtered = cutEventSet_massDiff(filtered)
+filtered, rejected = cutEventSet_massDiff(filtered)
+
+plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
+plot_compare(filtered, rejected, 'pPslow', 'pslow')
+plot_compare(filtered, rejected, 'pPslow_t', 'pslow-t')
+
 # cut on transverse momentum
-filtered = [d for d in filtered if 3000 <= d.pD0_t]
+filtered = [d for d in filtered if 2500 <= d.pD0_t <= 20000]
+filtered = [d for d in filtered if 2000 <= d.pPslow]
+filtered = [d for d in filtered if 300 <= d.pPslow_t]
 
 # remove width
 d0_c, dstar_c = 1865., 2010.
@@ -286,9 +306,7 @@ filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reco
 plotData(filtered)
 
 # mass dist
-offs = [d.pD0_t for d in filtered]
-ps = [d.pPslow for d in data]
+offs = [d.pPslow for d in filtered]
 pl.hist(offs, bins=100, histtype='step', fill=False)
 pl.savefig('offsets.png')
 pl.close()
-
