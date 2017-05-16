@@ -2,10 +2,14 @@ from typing import Text
 import csv
 import numpy as np
 from collections import namedtuple
-from scipy.constants import c, physical_constants
+from scipy.constants import c, hbar, physical_constants
 import pylab as pl
 import scipy.optimize as spo
+import lazy_property
+
+# constants
 e = physical_constants['electron volt'][0]
+m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
 # position 3-vector, units mm
 Position = np.array
@@ -15,6 +19,24 @@ Momentum = np.array
 
 def magnitude(v: Position):
 	return np.sqrt(np.sum(v**2))
+
+def momentum_toSI(p: float):
+	return p * 1e6 * e / c # in SI
+
+def mass_toSI(p: float):
+	return p * 1e6 * e / c**2 # in SI
+
+def energy_toSI(p: float):
+	return p * 1e6 * e # in SI
+
+def momentum_toMeV(p: float):
+	return p * 1e-6 * c / e
+
+def mass_toMeV(p: float):
+	return p * 1e-6 * c**2 / e
+
+def energy_toMeV(p: float):
+	return p * 1e-6 / e
 
 
 # Keep all data about the type together in a type, so vals for an event are stored next to each other on the heap.
@@ -38,23 +60,72 @@ class CandidateEvent(object):
 		str += "Ps\t\t" + np.array_str(self.ps) + "\n"
 		return str
 
+	@lazy_property.LazyProperty
 	def labFrameTravel(self):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
 
-	def absoluteDecayTime(self):
-		# p in a 3 axes is conserved in `D0 --> pi + K` decay
+	@lazy_property.LazyProperty
+	def pD0_t(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
-		print(pcomps_d0)
-		p_d0 = magnitude(pcomps_d0) * 1e6 * e / c # in SI
-		m0_n = 1864.84 # MeV/c2
-		m0 = m0_n * 1e6 * e / c**2 # convert MeV/c* -> kg
-		# un-boosted time in the particle's frame
-		x = self.labFrameTravel()
-		tp = m0 * x / p_d0
-		print(x, p_d0, m0, tp)
-		return tp
+		return magnitude(pcomps_d0[0:1])
+	
+	@lazy_property.LazyProperty
+	def pPslow(self):
+		return magnitude(self.ps)
+	
+	@lazy_property.LazyProperty
+	def pD0(self):
+		pcomps_d0 = self.kp+self.pd # in MeV
+		return momentum_toSI(magnitude(pcomps_d0))
 
+	@lazy_property.LazyProperty
+	def pDstar(self):
+		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
+		return momentum_toSI(magnitude(pcomps_dstar))
 
+	@lazy_property.LazyProperty
+	def daughterEnergy(self):
+		p_pi = momentum_toSI(magnitude(self.pd))
+		p_k = momentum_toSI(magnitude(self.kp))
+		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
+		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
+
+	@lazy_property.LazyProperty
+	def reconstructedD0Mass(self):
+		E_de = self.daughterEnergy
+		p_d0 = self.pD0
+		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
+
+	@lazy_property.LazyProperty
+	def gamma(self):
+		p_d0 = self.pD0
+		m_d0 = self.reconstructedD0Mass
+		return p_d0 / (c * m_d0)
+
+	@lazy_property.LazyProperty
+	def decayTime(self):
+		x = self.labFrameTravel
+		m_d0 = self.reconstructedD0Mass
+		p_d0 = self.pD0
+		return x * m_d0 / p_d0
+
+	@lazy_property.LazyProperty
+	def dStarEnergy(self):
+		E_d0 = self.daughterEnergy
+		p_pislow = momentum_toSI(magnitude(self.ps))
+		m_pi_si = mass_toSI(m_pi)
+		return E_d0 + np.sqrt((p_pislow*c)**2 + m_pi_si**2 * c**4)
+
+	@lazy_property.LazyProperty
+	def reconstructedDstarMass(self):
+		E = self.dStarEnergy
+		p_dstar = self.pDstar
+		return np.sqrt(E**2 - (p_dstar*c)**2)/c**2
+
+	# in MeV
+	@lazy_property.LazyProperty
+	def massDiff_d0dstar(self):
+		return mass_toMeV(self.reconstructedDstarMass - self.reconstructedD0Mass)
 
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
@@ -86,27 +157,138 @@ def readFile(name: Text):
 
         return cands
 
-print(hist, len(cum))
-def getLifetime():
-	data = readFile('np.txt')
-	print(data)
-	times = [d.absoluteDecayTime()*1e15 for d in data]
 
-	hist, bin_edges = np.histogram(times, bins=500, range=(0, 10000))
-	pl.hist(times, bins=500, range=(0, 10000))
-	pl.savefig('hist.png')
-	bin_width = bin_edges[1]-bin_edges[0]
 
-	cum = np.cumsum(hist)*bin_width
+def plotData(data):
+	# mass dist
+	masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
+	pl.hist(masses, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
+	pl.savefig('mass-dist.png')
+	pl.close()
+
+	# dstar mass dist
+	ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
+	pl.hist(ds_masses, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
+	pl.savefig('dstar-mass-dist.png')
+	pl.close()
+
+	# mass difference dist
+	mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
+	pl.hist(mass_diffs, bins=100, histtype='step', fill=False)
+	pl.xlabel(r'Mass difference / MeV/$c^2$')
+	pl.savefig('mass-diff-dist.png')
+	pl.close()
+
+	# gamma dist
+	gammas = [d.gamma for d in data]
+	pl.hist(gammas, bins=500)
+	pl.savefig('gamma-dist.png')
+	pl.close()
+
+	# travel dist
+	trav = [d.labFrameTravel for d in data]
+	pl.hist(trav, bins=500, range=(0, 0.04))
+	pl.savefig('trav-dist.png')
+	pl.close()
+
+
+	# decay time dist
+	times = [d.decayTime*1e12 for d in data]
+
+	pl.hist(times, bins=100, range=(0, 50))
+	pl.savefig('time-hist.png')
+	pl.close()
+
+	# decay time curve
+	hist, bin_edges = np.histogram(times, bins=100, range=(0.15, 10))
+	num_events = np.sum(hist)
+	print(num_events, ' events')
 	time = bin_edges[1:]
 
-	pl.plot(time, cum)
-	pl.savefig('graph.png')
+	pl.plot(time, hist, '-b')
+	pl.xlabel(r'Decay time / ps')
+	pl.savefig('decay.png')
+	pl.close()
 
-	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau) + c, time, cum, [1, 400, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+	# decay time fitting
+	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau)+c, time, hist, [num_events, 1.5, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
-	print('po', po)
+	pl.plot(time, hist, '-b')
+	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
+	pl.xlabel(r'Decay time / ps')
+	pl.savefig('decay-fitted.png')
+	pl.close()
 
-	print(hist, len(cum))
+	partial_lifetime = po[1]
+	print('partial lifetime\t' + str(partial_lifetime) + ' ps')
+	# print(hbar/(partial_lifetime*1e-12), hbar)
+	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
 
-getLifetime()
+
+
+# takes list of candidate events, cuts them by their mass diff
+def cutEventSet_massDiff(events):
+
+	def fit_func(dm, bg_A, sig_A, sig_centre, sig_w, r):
+		signal = sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
+		bg = bg_A * (dm-m_pi)**r
+		return signal + bg
+	initial = [20, 220, 146, 2, 0.5]
+
+	diffs = [d.massDiff_d0dstar for d in events]
+
+	hist, bin_edges = np.histogram(diffs, bins=500)
+	masses = bin_edges[1:]
+
+	po, po_cov = spo.curve_fit(fit_func, masses, hist, initial)
+
+	print(po)
+	pl.plot(masses, hist, '-b')
+	pl.plot(masses, fit_func(masses, *po), '-r')
+# 	pl.xlabel(r'Decay time / ps')
+	pl.savefig('cut-fitted.png')
+	pl.close()
+
+	# cut at 4 widths
+	bg_A, sig_A, sig_centre, sig_w, r = po
+	width = .5
+	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	print('range', range_low, range_up)
+	return list(filter(lambda event: range_low <= event.massDiff_d0dstar <= range_up, events))
+
+
+
+#get data
+data = readFile('np.txt')
+d = data[0]
+print(d)
+mass, time = d.reconstructedD0Mass, d.decayTime
+print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
+
+
+
+filtered = data
+# cut on mass diff
+filtered = cutEventSet_massDiff(filtered)
+# cut on transverse momentum
+filtered = [d for d in filtered if 3000 <= d.pD0_t]
+
+# remove width
+d0_c, dstar_c = 1865., 2010.
+width = 20.
+filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width)]
+
+
+# filtered = [d for d in filtered if d.pPslow >= 1.3e3]
+
+plotData(filtered)
+
+# mass dist
+offs = [d.pD0_t for d in filtered]
+ps = [d.pPslow for d in data]
+pl.hist(offs, bins=100, histtype='step', fill=False)
+pl.savefig('offsets.png')
+pl.close()
+
