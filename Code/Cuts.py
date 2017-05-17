@@ -16,6 +16,31 @@ filtered = data
 filtered, rejected = cutEventSet_massDiff(filtered)
 
 
+newfig()
+pl.plot([f.massDiff_d0dstar for f in filtered], [f.pD0_t for f in filtered], ',g')
+pl.plot([f.massDiff_d0dstar for f in rejected], [f.pD0_t for f in rejected], ',r')
+savefig('dm-pD0_t-correleation')
+pl.close()
+
+newfig()
+pl.plot([f.massDiff_d0dstar for f in filtered], [f.pPslow for f in filtered], ',g')
+pl.plot([f.massDiff_d0dstar for f in rejected], [f.pPslow for f in rejected], ',r')
+savefig('dm-pPslow-correleation')
+pl.close()
+
+newfig()
+pl.plot([f.massDiff_d0dstar for f in filtered], [f.pPslow_t for f in filtered], ',g')
+pl.plot([f.massDiff_d0dstar for f in rejected], [f.pPslow_t for f in rejected], ',r')
+savefig('dm-pPslow_t-correleation')
+pl.close()
+
+newfig()
+pl.plot([f.massDiff_d0dstar for f in filtered if f.decayTime < 10e-12], [f.decayTime for f in filtered if f.decayTime < 10e-12], ',g')
+pl.plot([f.massDiff_d0dstar for f in rejected if f.decayTime < 10e-12], [f.decayTime for f in rejected if f.decayTime < 10e-12], ',r')
+savefig('dm-decayTime-correleation')
+pl.close()
+
+
 plot_compare(filtered, rejected, 'decayTime', 'decayTime')
 plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
 plot_compare(filtered, rejected, 'pPslow', 'pslow')
