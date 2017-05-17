@@ -1,3 +1,6 @@
 /Report
 /Notes
 .DS_Store
+*.pgf
+__pycache__/*
+*.pyc

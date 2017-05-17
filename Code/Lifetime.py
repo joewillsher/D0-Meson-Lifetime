@@ -6,6 +6,7 @@ from scipy.constants import c, hbar, physical_constants
 import pylab as pl
 import scipy.optimize as spo
 import lazy_property
+from style import *
 
 # constants
 e = physical_constants['electron volt'][0]
@@ -206,7 +207,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=100, range=(0.4, 10))
+	hist, bin_edges = np.histogram(times, bins=100, range=(0.1, 10))
 	num_events = np.sum(hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
@@ -264,49 +265,10 @@ def cutEventSet_massDiff(events):
 
 	# cut at 4 widths
 	bg_A, sig_A, sig_centre, sig_w, r = po
-	width = 1.
+	width = 2.
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
 	rejected = [event for event in events if not range_low <= event.massDiff_d0dstar <= range_up]
 	return accepted, rejected
 
-
-
-#get data
-data = readFile('np.txt')
-d = data[0]
-print(d)
-mass, time = d.reconstructedD0Mass, d.decayTime
-print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
-
-
-
-filtered = data
-# cut on mass diff
-filtered, rejected = cutEventSet_massDiff(filtered)
-
-plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
-plot_compare(filtered, rejected, 'pPslow', 'pslow')
-plot_compare(filtered, rejected, 'pPslow_t', 'pslow-t')
-
-# cut on transverse momentum
-filtered = [d for d in filtered if 2500 <= d.pD0_t <= 20000]
-filtered = [d for d in filtered if 2000 <= d.pPslow]
-filtered = [d for d in filtered if 300 <= d.pPslow_t]
-
-# remove width
-d0_c, dstar_c = 1865., 2010.
-width = 20.
-filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width)]
-
-
-# filtered = [d for d in filtered if d.pPslow >= 1.3e3]
-
-plotData(filtered)
-
-# mass dist
-offs = [d.pPslow for d in filtered]
-pl.hist(offs, bins=100, histtype='step', fill=False)
-pl.savefig('offsets.png')
-pl.close()
