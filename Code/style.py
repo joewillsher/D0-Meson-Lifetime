@@ -39,7 +39,7 @@ if '--latex-plot' in sys.argv:
 
 	# I make my own newfig and savefig functions
 
-	def newfig(width=0.6):
+	def newfig(width=.7):
 		pl.clf()
 		fig = pl.figure(figsize=figsize(width))
 		ax = fig.add_subplot(111)

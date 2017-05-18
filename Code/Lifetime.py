@@ -7,6 +7,8 @@ import pylab as pl
 import scipy.optimize as spo
 import lazy_property
 from style import *
+import os
+cwd = os.getcwd()
 
 # constants
 e = physical_constants['electron volt'][0]
@@ -135,7 +137,7 @@ class CandidateEvent(object):
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
 def readFile(name: Text):
-    with open(name, 'r') as csvfile:
+    with open(cwd+'/'+name, 'r') as csvfile:
     	# get the rows from the file
         rows = csv.reader(csvfile, delimiter=' ', quotechar='|') #creates array of array: each array is a row.
 
@@ -167,43 +169,49 @@ def readFile(name: Text):
 def plotData(data):
 	# mass dist
 	masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
+	newfig()
 	pl.hist(masses, bins=100, histtype='step', fill=False)
 	pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
-	pl.savefig('mass-dist.png')
+	savefig('mass-dist')
 	pl.close()
 
 	# dstar mass dist
 	ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
+	newfig()
 	pl.hist(ds_masses, bins=100, histtype='step', fill=False)
 	pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
-	pl.savefig('dstar-mass-dist.png')
+	savefig('dstar-mass-dist')
 	pl.close()
 
 	# mass difference dist
 	mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
+	newfig()
 	pl.hist(mass_diffs, bins=100, histtype='step', fill=False)
 	pl.xlabel(r'Mass difference / MeV/$c^2$')
-	pl.savefig('mass-diff-dist.png')
+	savefig('mass-diff-dist')
 	pl.close()
 
 	# gamma dist
 	gammas = [d.gamma for d in data]
+	newfig()
 	pl.hist(gammas, bins=500)
-	pl.savefig('gamma-dist.png')
+	savefig('gamma-dist')
 	pl.close()
 
 	# travel dist
 	trav = [d.labFrameTravel for d in data]
+	newfig()
 	pl.hist(trav, bins=500, range=(0, 0.04))
-	pl.savefig('trav-dist.png')
+	savefig('trav-dist')
 	pl.close()
 
 
 	# decay time dist
 	times = [d.decayTime*1e12 for d in data]
-
+	
+	newfig()
 	pl.hist(times, bins=100, range=(0, 50))
-	pl.savefig('time-hist.png')
+	savefig('time-hist')
 	pl.close()
 
 	# decay time curve
@@ -212,18 +220,20 @@ def plotData(data):
 	print(num_events, ' events')
 	time = bin_edges[1:]
 
+	newfig()
 	pl.plot(time, hist, '-b')
 	pl.xlabel(r'Decay time / ps')
-	pl.savefig('decay.png')
+	savefig('decay')
 	pl.close()
 
 	# decay time fitting
 	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau)+c, time, hist, [num_events, 1.5, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
+	newfig()
 	pl.plot(time, hist, '-b')
 	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
 	pl.xlabel(r'Decay time / ps')
-	pl.savefig('decay-fitted.png')
+	savefig('decay-fitted')
 	pl.close()
 
 	partial_lifetime = po[1]
@@ -232,43 +242,65 @@ def plotData(data):
 	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
 
 
-def plot_compare(accepted, rejected, prop, name):
+def plot_compare(accepted, rejected, prop, name, range=None):
 	diffs_a, diffs_r = [getattr(d, prop) for d in accepted], [getattr(d, prop) for d in rejected]
+	newfig()
 	f, axarr = pl.subplots(2, sharex=True)
-	axarr[0].hist(diffs_a, 100, facecolor='green')
-	axarr[1].hist(diffs_r, 100, facecolor='red')
-	pl.savefig(name+'-compare.png')
+	axarr[0].hist(diffs_a, 100, facecolor='green', range=range)
+	axarr[1].hist(diffs_r, 100, facecolor='red', range=range)
+	savefig(name+'-compare')
 	pl.close()
+
+
+def background_fit(dm, bg_A, bg_p):
+	return bg_A * (dm-m_pi)**bg_p
+	
+def signal_fit(dm, sig_A, sig_centre, sig_w):
+	return sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
+# def signal_fit(dm, sig_A, sig_centre, sig_w):
+# 	return sig_A * np.exp(-(dm-sig_centre)**2/sig_w)
+	
+def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
+	return signal_fit(dm, sig_A, sig_centre, sig_w) + background_fit(dm, bg_A, bg_p)
 
 
 # takes list of candidate events, cuts them by their mass diff
 def cutEventSet_massDiff(events):
 
-	def fit_func(dm, bg_A, sig_A, sig_centre, sig_w, r):
-		signal = sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
-		bg = bg_A * (dm-m_pi)**r
-		return signal + bg
-	initial = [20, 220, 146, 2, 0.5]
+	initial = [20, 0.25, 220, 146, 2]
+# 	initial = [10, 0.25, 220, 146, 2]
 
 	diffs = [d.massDiff_d0dstar for d in events]
-	hist, bin_edges = np.histogram(diffs, bins=500)
-	masses = bin_edges[1:]
+	hist, bin_edges = np.histogram(diffs, bins=300)
+	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
+	bin_width = bin_edges[1] - bin_edges[0]
 
-	po, po_cov = spo.curve_fit(fit_func, masses, hist, initial)
+	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial)
 
-	print(po)
-	pl.plot(masses, hist, '-b')
-	pl.plot(masses, fit_func(masses, *po), '-r')
-# 	pl.xlabel(r'Decay time / ps')
-	pl.savefig('cut-fitted.png')
+	print('po-fit', po)
+	newfig()
+	pl.plot(masses, hist, '.g-')
+	pl.plot(masses, signal_fit(masses, *po[2:]), '-r')
+	pl.fill_between(masses, 0, background_fit(masses, *po[:2]), facecolor='blue', alpha=0.5)
+	pl.xlabel(r'$\Delta m$ / GeV/$c^2$')
+	savefig('cut-fitted')
 	pl.close()
 
 	# cut at 4 widths
-	bg_A, sig_A, sig_centre, sig_w, r = po
-	width = 2.
+	bg_A, bg_p, sig_A, sig_centre, sig_w = po
+	width = 3.
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
 	rejected = [event for event in events if not range_low <= event.massDiff_d0dstar <= range_up]
-	return accepted, rejected
+	return accepted, rejected, po, bin_width
 
+def cut(accepted, rejected, cond):
+	acc, rej = [], list(rejected)
+	for a in accepted:
+		if cond(a):
+			acc.append(a)
+		else:
+			rej.append(a)
+
+	return np.array(acc), np.array(rej)
