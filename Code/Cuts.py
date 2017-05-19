@@ -8,12 +8,9 @@ mass, time = d.reconstructedD0Mass, d.decayTime
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 
-
-
-
 filtered = data
 # cut on mass diff
-filtered, rejected, po, bin_width = cutEventSet_massDiff(filtered)
+filtered, rejected, po, bin_width = cutEventSet_massDiff(filtered, 1.)
 
 
 newfig()

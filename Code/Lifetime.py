@@ -265,7 +265,7 @@ def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 
 
 # takes list of candidate events, cuts them by their mass diff
-def cutEventSet_massDiff(events):
+def cutEventSet_massDiff(events, width):
 
 	initial = [20, 0.25, 220, 146, 2]
 # 	initial = [10, 0.25, 220, 146, 2]
@@ -288,7 +288,6 @@ def cutEventSet_massDiff(events):
 
 	# cut at 4 widths
 	bg_A, bg_p, sig_A, sig_centre, sig_w = po
-	width = 3.
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]

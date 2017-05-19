@@ -12,7 +12,7 @@ print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
 
 # cut on mass diff
-filtered, rejected, po_cut_data, data_bin_width = cutEventSet_massDiff(data)
+filtered, rejected, po_cut_data, data_bin_width = cutEventSet_massDiff(data, 4.)
 bg, sig = po_cut_data[:2], po_cut_data[2:]
 
 # fit the initial cut's rejected data
@@ -34,10 +34,11 @@ print(po)
 
 plot_compare(filtered, rejected, 'decayTime', 'decay-BEFORE', (0,10e-12))
 
-# filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t <= 20000)
-# filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t)
-# filtered, rejected = cut(filtered, rejected, lambda d: 2000 <= d.pPslow)
-# plot_compare(filtered, rejected, 'decayTime', 'decay-AFTER', (0,10e-12))
+filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t <= 20000)
+filtered, rejected = cut(filtered, rejected, lambda d: 140 <= d.pPslow_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 2000 <= d.pPslow)
+plot_compare(filtered, rejected, 'decayTime', 'decay-AFTER', (0,10e-12))
+
 
 newfig()
 pl.semilogy(time, hist, 'or')
@@ -56,17 +57,21 @@ def expected_background_number(dm):
 	return background_fit(dm, *bg)/data_bin_width
 
 sig_centre, sig_w = po_cut_data[3], po_cut_data[4]
-width = 1.
-range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+# PARAMS
+width = .75
+offset = +.8*width
+num_bins = 10
+range_low, range_up = offset+sig_centre - sig_w*width, offset+sig_centre + sig_w*width
 
-print(range_low, range_up)
+print('RANGE', range_low, range_up)
 
 # all events we consider in the range
 events = [d for d in filtered if range_low <= d.massDiff_d0dstar <= range_up and 1e-13 <= d.decayTime <= 1e-11]
+print('events', len(events))
 # array of md's
 diffs = [d.massDiff_d0dstar for d in events]
 # hist of dm's
-hist, bin_edges = np.histogram(diffs, bins=10)
+hist, bin_edges = np.histogram(diffs, bins=num_bins)
 # central dm vals
 dms = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 dm_width = dms[1]-dms[0]
@@ -76,17 +81,25 @@ diff_events = np.array([[x for x in events if d0 <= x.massDiff_d0dstar < d1] for
 N_b = expected_background_number(dms)*dm_width
 N_s = expected_signal_number(dms)*dm_width
 N = N_b + N_s
-tau_m_event = np.array([np.mean([d.decayTime for d in event])*1e12 for event in diff_events])
+tau_m_event = []
+for dm_mean, events in zip(dms, diff_events):
+	hist, bin_edges = np.histogram([e.decayTime*1e12 for e in events], bins=20)
+	time = bin_edges[1:]
+	po, po_conv = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau)+c, time, hist, [len(rejected), 1.5, 0])
+	tau_m_event.append(po[1])
+
+tau_m_event = np.array(tau_m_event)
 
 a_b = (N * tau_m_event - N_b * tau_b) / N_s
-# taus = tau_b * (N_b / N_s) * a_b
+weights = N / N_b
 
 print(N_b, sum(N_b))
 print(N_s, sum(N_s))
 print(tau_m_event)
 print(tau_b)
 print(a_b)
-print(np.average(a_b))
+print(weights)
+print(np.average(a_b, weights=weights))
 
 
 # fig, ax = newfig()
