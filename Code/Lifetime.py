@@ -23,6 +23,12 @@ Momentum = np.array
 def magnitude(v: Position):
 	return np.sqrt(np.sum(v**2))
 
+def normed(v: Position):
+	return v/np.sqrt(np.sum(v**2))
+
+def dot(a: Position, b: Position):
+	return np.sum(a*b)
+
 def momentum_toSI(p: float):
 	return p * 1e6 * e / c # in SI
 
@@ -70,6 +76,11 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def pD0_t(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
+		return magnitude(pcomps_d0[0:1])
+
+	@lazy_property.LazyProperty
+	def pDstar_t(self):
+		pcomps_d0 = self.kp+self.pd+self.ps # in MeV
 		return magnitude(pcomps_d0[0:1])
 	
 	@lazy_property.LazyProperty
@@ -133,6 +144,48 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def massDiff_d0dstar(self):
 		return mass_toMeV(self.reconstructedDstarMass - self.reconstructedD0Mass)
+
+	@lazy_property.LazyProperty
+	def d0IP_log(self):
+		x = (self.d0Decay - self.dstarDecay)*1e-3
+		p = normed(momentum_toSI(self.kp+self.pd))
+		return np.log10(magnitude(x - dot(x,p) * p)*1e6)
+	
+	@lazy_property.LazyProperty
+	def kIP_log(self):
+		x = (self.d0Decay - self.dstarDecay)*1e-3
+		p = normed(momentum_toSI(self.kp))
+		return np.log10(magnitude(x - dot(x,p) * p)*1e6)
+
+	@lazy_property.LazyProperty
+	def pIP_log(self):
+		x = (self.d0Decay - self.dstarDecay)*1e-3
+		p = normed(momentum_toSI(self.pd))
+		return np.log10(magnitude(x - dot(x,p) * p)*1e6)
+
+	@lazy_property.LazyProperty
+	def psIP_log(self):
+		x = (self.d0Decay - self.dstarDecay)*1e-3
+		p = normed(momentum_toSI(self.ps))
+		return np.log10(magnitude(x - dot(x,p) * p)*1e6)
+
+	@lazy_property.LazyProperty
+	def pk_t(self):
+		return magnitude(self.kp[0:1])
+
+	@lazy_property.LazyProperty
+	def pp_t(self):
+		return magnitude(self.pd[0:1])
+
+	@lazy_property.LazyProperty
+	def s_z(self):
+		return self.dstarDecay[2] - self.interaction[2]
+
+	@lazy_property.LazyProperty
+	def costheta(self):
+		p, r = momentum_toSI(self.pD0_t), (self.d0Decay-self.dstarDecay)*1e-3
+		return dot(p, r) / (magnitude(p) * magnitude(r))
+
 
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
@@ -207,7 +260,7 @@ def plotData(data):
 
 
 	# decay time dist
-	times = [d.decayTime*1e12 for d in data]
+	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
 	
 	newfig()
 	pl.hist(times, bins=100, range=(0, 50))
@@ -215,7 +268,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=100, range=(0.1, 10))
+	hist, bin_edges = np.histogram(times, bins=100, range=(0., 10.))
 	num_events = np.sum(hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
@@ -227,27 +280,29 @@ def plotData(data):
 	pl.close()
 
 	# decay time fitting
-	po, po_cov = spo.curve_fit(lambda t, A, tau, c: A * np.exp(-t/tau)+c, time, hist, [num_events, 1.5, 0]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
 
 	newfig()
-	pl.plot(time, hist, '-b')
-	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
+	pl.semilogy(time, hist, 'or')
+	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
+	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
 	pl.xlabel(r'Decay time / ps')
 	savefig('decay-fitted')
 	pl.close()
 
 	partial_lifetime = po[1]
-	print('partial lifetime\t' + str(partial_lifetime) + ' ps')
+	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(np.mean(times)))
 	# print(hbar/(partial_lifetime*1e-12), hbar)
 	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
 
 
 def plot_compare(accepted, rejected, prop, name, range=None):
 	diffs_a, diffs_r = [getattr(d, prop) for d in accepted], [getattr(d, prop) for d in rejected]
-	newfig()
-	f, axarr = pl.subplots(2, sharex=True)
-	axarr[0].hist(diffs_a, 100, facecolor='green', range=range)
-	axarr[1].hist(diffs_r, 100, facecolor='red', range=range)
+	fig, ax = newfig()
+	pl.yscale('log')
+	acc = pl.hist(diffs_a, 100, facecolor='g', normed=True, histtype='step', range=range, label='accepted')
+	rej = pl.hist(diffs_r, 100, facecolor='r', normed=True, histtype='step', range=range, label='rejected')
+	ax.legend(loc='upper right', shadow=True)
 	savefig(name+'-compare')
 	pl.close()
 
@@ -255,10 +310,10 @@ def plot_compare(accepted, rejected, prop, name, range=None):
 def background_fit(dm, bg_A, bg_p):
 	return bg_A * (dm-m_pi)**bg_p
 	
-def signal_fit(dm, sig_A, sig_centre, sig_w):
-	return sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
 # def signal_fit(dm, sig_A, sig_centre, sig_w):
-# 	return sig_A * np.exp(-(dm-sig_centre)**2/sig_w)
+# 	return sig_A * np.exp(-np.abs(dm-sig_centre)/sig_w)
+def signal_fit(dm, sig_A, sig_centre, sig_w):
+	return sig_A * np.exp(-(dm-sig_centre)**2/(2*sig_w**2))
 	
 def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 	return signal_fit(dm, sig_A, sig_centre, sig_w) + background_fit(dm, bg_A, bg_p)
@@ -267,21 +322,26 @@ def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 # takes list of candidate events, cuts them by their mass diff
 def cutEventSet_massDiff(events, width):
 
-	initial = [20, 0.25, 220, 146, 2]
-# 	initial = [10, 0.25, 220, 146, 2]
+# 	initial = [20, 0.25, 220, 146, 2]
+	initial = [30, 0.25, 90, 146, .65]
 
-	diffs = [d.massDiff_d0dstar for d in events]
-	hist, bin_edges = np.histogram(diffs, bins=300)
+	diffs = [d.massDiff_d0dstar for d in events if d.massDiff_d0dstar < 170]
+	hist, bin_edges = np.histogram(diffs, bins=100)
 	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
+	errors = np.sqrt(hist)
 
-	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial)
+	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors)
 
 	print('po-fit', po)
-	newfig()
-	pl.plot(masses, hist, '.g-')
-	pl.plot(masses, signal_fit(masses, *po[2:]), '-r')
-	pl.fill_between(masses, 0, background_fit(masses, *po[:2]), facecolor='blue', alpha=0.5)
+	fig, ax = newfig()
+	pl.plot(masses, hist, '.g')
+	pl.errorbar(masses, hist, yerr=errors, ecolor='g')
+	
+	masses_continuous = np.arange(m_pi, masses[-1], .1)
+	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-r')
+	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', alpha=0.5)
+	ax.set_xlim(139, 170)
 	pl.xlabel(r'$\Delta m$ / GeV/$c^2$')
 	savefig('cut-fitted')
 	pl.close()

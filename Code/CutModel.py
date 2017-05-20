@@ -58,8 +58,8 @@ def expected_background_number(dm):
 
 sig_centre, sig_w = po_cut_data[3], po_cut_data[4]
 # PARAMS
-width = .75
-offset = +.8*width
+width = .8
+offset = +.5*width
 num_bins = 10
 range_low, range_up = offset+sig_centre - sig_w*width, offset+sig_centre + sig_w*width
 
