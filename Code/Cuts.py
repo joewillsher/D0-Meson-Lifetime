@@ -39,21 +39,6 @@ savefig('dm-decayTime-correlation')
 pl.close()
 
 
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pk_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pp_t)
-
-filtered, rejected = cut(filtered, rejected, lambda d: -2 <= d.d0IP_log <= 0.8)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.kIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.pIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.psIP_log <= 2)
-
-filtered, rejected = cut(filtered, rejected, lambda d:  5 <= d.s_z <= 120)
-filtered, rejected = cut(filtered, rejected, lambda d:  0.95 >= d.costheta)
-
-
 plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0,10e-12))
 plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
 plot_compare(filtered, rejected, 'pPslow', 'pslow')
@@ -68,10 +53,25 @@ plot_compare(filtered, rejected, 'psIP_log', 'ps-impact-parameter')
 plot_compare(filtered, rejected, 's_z', 's_z', (-200, 200))
 plot_compare(filtered, rejected, 'costheta', 'costheta', (.6,1))
 
+filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pk_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pp_t)
+
+filtered, rejected = cut(filtered, rejected, lambda d: -2 <= d.d0IP_log <= 0.8)
+filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.kIP_log <= 3)
+filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.pIP_log <= 3)
+filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.psIP_log <= 2)
+
+filtered, rejected = cut(filtered, rejected, lambda d:  5 <= d.s_z <= 120)
+filtered, rejected = cut(filtered, rejected, lambda d:  0.9 <= d.costheta)
+
+
 
 # remove width
 d0_c, dstar_c = 1865., 2010.
-width = 50.
+width = 20.
 filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width)]
 
 

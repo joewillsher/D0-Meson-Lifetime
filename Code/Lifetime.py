@@ -183,7 +183,7 @@ class CandidateEvent(object):
 
 	@lazy_property.LazyProperty
 	def costheta(self):
-		p, r = momentum_toSI(self.pD0_t), (self.d0Decay-self.dstarDecay)*1e-3
+		p, r = momentum_toSI(self.pDstar_t), (self.d0Decay-self.interaction)*1e-3
 		return dot(p, r) / (magnitude(p) * magnitude(r))
 
 
@@ -268,7 +268,7 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=100, range=(0., 10.))
+	hist, bin_edges = np.histogram(times, bins=50, range=(0., 3.))
 	num_events = np.sum(hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
