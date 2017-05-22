@@ -39,7 +39,7 @@ savefig('dm-decayTime-correlation')
 pl.close()
 
 
-plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0,10e-12))
+plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0, 10e-12))
 plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
 plot_compare(filtered, rejected, 'pPslow', 'pslow')
 plot_compare(filtered, rejected, 'pPslow_t', 'pslow-t')
@@ -53,19 +53,20 @@ plot_compare(filtered, rejected, 'psIP_log', 'ps-impact-parameter')
 plot_compare(filtered, rejected, 's_z', 's_z', (-200, 200))
 plot_compare(filtered, rejected, 'costheta', 'costheta', (.6,1))
 
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t)
+
+filtered, rejected = cut(filtered, rejected, lambda d: 3500 <= d.pD0_t)
 filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pk_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 750 <= d.pp_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 200 <= d.pPslow_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 500 <= d.pk_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 500 <= d.pp_t)
 
-filtered, rejected = cut(filtered, rejected, lambda d: -2 <= d.d0IP_log <= 0.8)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.kIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.pIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: 0 <= d.psIP_log <= 2)
+filtered, rejected = cut(filtered, rejected, lambda d: -2 <= d.d0IP_log <= 1)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.kIP_log <= 3)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.pIP_log <= 3)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.psIP_log <= 2)
 
-filtered, rejected = cut(filtered, rejected, lambda d:  5 <= d.s_z <= 120)
-filtered, rejected = cut(filtered, rejected, lambda d:  0.9 <= d.costheta)
+filtered, rejected = cut(filtered, rejected, lambda d:  10 <= d.s_z <= 120)
+filtered, rejected = cut(filtered, rejected, lambda d:  0.95 <= d.costheta)
 
 
 

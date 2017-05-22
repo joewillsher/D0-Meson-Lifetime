@@ -183,7 +183,7 @@ class CandidateEvent(object):
 
 	@lazy_property.LazyProperty
 	def costheta(self):
-		p, r = momentum_toSI(self.pDstar_t), (self.d0Decay-self.interaction)*1e-3
+		p, r = self.pDstar, self.dstarDecay-self.interaction
 		return dot(p, r) / (magnitude(p) * magnitude(r))
 
 
@@ -260,7 +260,7 @@ def plotData(data):
 
 
 	# decay time dist
-	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
+	times = [d.decayTime*1e12 for d in data if d. decayTime < 10e-12]
 	
 	newfig()
 	pl.hist(times, bins=100, range=(0, 50))
