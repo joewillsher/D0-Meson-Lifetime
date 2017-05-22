@@ -224,7 +224,7 @@ def plotData(data):
 	masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
 	newfig()
 	pl.hist(masses, bins=100, histtype='step', fill=False)
-	pl.xlabel(r'$D^0$ Mass / MeV/$c^2$')
+	pl.xlabel(r'$D^0$ Mass [MeV/$c^2$]')
 	savefig('mass-dist')
 	pl.close()
 
@@ -232,7 +232,7 @@ def plotData(data):
 	ds_masses = [mass_toMeV(d.reconstructedDstarMass) for d in data]
 	newfig()
 	pl.hist(ds_masses, bins=100, histtype='step', fill=False)
-	pl.xlabel(r'$D^{+*}$ Mass / MeV/$c^2$')
+	pl.xlabel(r'$D^{+*}$ Mass [MeV/$c^2$]')
 	savefig('dstar-mass-dist')
 	pl.close()
 
@@ -240,7 +240,7 @@ def plotData(data):
 	mass_diffs = [x0 - x1 for x0, x1 in zip(ds_masses, masses)]
 	newfig()
 	pl.hist(mass_diffs, bins=100, histtype='step', fill=False)
-	pl.xlabel(r'Mass difference / MeV/$c^2$')
+	pl.xlabel(r'Mass difference [MeV/$c^2$]')
 	savefig('mass-diff-dist')
 	pl.close()
 
@@ -275,7 +275,7 @@ def plotData(data):
 
 	newfig()
 	pl.plot(time, hist, '-b')
-	pl.xlabel(r'Decay time / ps')
+	pl.xlabel(r'Decay time [ps]')
 	savefig('decay')
 	pl.close()
 
@@ -286,23 +286,30 @@ def plotData(data):
 	pl.semilogy(time, hist, 'or')
 	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
 	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-	pl.xlabel(r'Decay time / ps')
+	pl.xlabel(r'Decay time [ps]')
 	savefig('decay-fitted')
 	pl.close()
 
 	partial_lifetime = po[1]
-	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(np.mean(times)))
+	mean_lifetime = np.mean(times)
+	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime))
 	# print(hbar/(partial_lifetime*1e-12), hbar)
 	# print('partial width   \t' + str(c**2 * 1e-6 * hbar/(partial_lifetime*1e-12) / e) + ' MeV/c2')
+	
+	with open("data.txt", "w") as text_file:
+	    text_file.write("lifetime=%s" % mean_lifetime)
 
 
-def plot_compare(accepted, rejected, prop, name, range=None):
+def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 	diffs_a, diffs_r = [getattr(d, prop) for d in accepted], [getattr(d, prop) for d in rejected]
 	fig, ax = newfig()
 	pl.yscale('log')
 	acc = pl.hist(diffs_a, 100, facecolor='g', normed=True, histtype='step', range=range, label='accepted')
 	rej = pl.hist(diffs_r, 100, facecolor='r', normed=True, histtype='step', range=range, label='rejected')
-	ax.legend(loc='upper right', shadow=True)
+	if label:
+		pl.xlabel(label)
+	pl.ylabel(r'Relative frequency')
+	ax.legend(loc='upper right', shadow=False)
 	savefig(name+'-compare')
 	pl.close()
 
@@ -342,7 +349,8 @@ def cutEventSet_massDiff(events, width):
 	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-r')
 	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', alpha=0.5)
 	ax.set_xlim(139, 170)
-	pl.xlabel(r'$\Delta m$ / GeV/$c^2$')
+	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
+	pl.ylabel(r'Relative frequency')
 	savefig('cut-fitted')
 	pl.close()
 

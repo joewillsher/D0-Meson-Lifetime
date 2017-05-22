@@ -23,12 +23,13 @@ if '--latex-plot' in sys.argv:
 	"font.serif": [],                   # blank entries should cause plots to inherit fonts from the document
 	"font.sans-serif": [],
 	"font.monospace": [],
-	"axes.labelsize": 10,               # LaTeX default is 10pt font.
-	"font.size": 10,
-	"legend.fontsize": 8,               # Make the legend/label fonts a little smaller
-	"xtick.labelsize": 8,
-	"ytick.labelsize": 8,
+	"axes.labelsize": 8,               # LaTeX default is 10pt font.
+	"font.size": 8,
+	"legend.fontsize": 7,               # Make the legend/label fonts a little smaller
+	"xtick.labelsize": 7,
+	"ytick.labelsize": 7,
 	"figure.figsize": figsize(0.9),     # default fig size of 0.9 textwidth
+	"figure.autolayout" : True,
 	"pgf.preamble": [
 	r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts becasue your computer can handle it :)
 	r"\usepackage[T1]{fontenc}",        # plots will be generated using this preamble
@@ -46,8 +47,8 @@ if '--latex-plot' in sys.argv:
 		return fig, ax
 
 	def savefig(filename):
-		pl.savefig('{}.pgf'.format(filename))
-		pl.savefig('{}.png'.format(filename))
+		pl.savefig(filename+'.pgf')
+		pl.savefig(filename+'.png')
 else:
 	def newfig(width=2):
 		pl.clf()

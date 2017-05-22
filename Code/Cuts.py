@@ -39,19 +39,34 @@ savefig('dm-decayTime-correlation')
 pl.close()
 
 
-plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0, 10e-12))
-plot_compare(filtered, rejected, 'pD0_t', 'pd0-t')
-plot_compare(filtered, rejected, 'pPslow', 'pslow')
-plot_compare(filtered, rejected, 'pPslow_t', 'pslow-t')
-plot_compare(filtered, rejected, 'pDstar_t', 'dstar-t')
-plot_compare(filtered, rejected, 'pk_t', 'pk-t')
-plot_compare(filtered, rejected, 'pp_t', 'pp-t')
-plot_compare(filtered, rejected, 'd0IP_log', 'd0-impact-parameter')
-plot_compare(filtered, rejected, 'kIP_log', 'k-impact-parameter')
-plot_compare(filtered, rejected, 'pIP_log', 'p-impact-parameter')
-plot_compare(filtered, rejected, 'psIP_log', 'ps-impact-parameter')
-plot_compare(filtered, rejected, 's_z', 's_z', (-200, 200))
-plot_compare(filtered, rejected, 'costheta', 'costheta', (.6,1))
+plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0, 10e-12), \
+	label=r'Decay time $t$ [ps]')
+plot_compare(filtered, rejected, 'pD0_t', 'pd0-t', \
+	label=r'$D^0$ Transverse momentum $p_T$ [GeV / c]')
+plot_compare(filtered, rejected, 'pPslow', 'pslow', \
+	label=r'Slow $\pi$ momentum p [GeVp_T / c]')
+plot_compare(filtered, rejected, 'pPslow_t', 'pslow-t', \
+	label=r'Slow $\pi$ transverse momentum $p_T$ [GeV / c]')
+plot_compare(filtered, rejected, 'pDstar_t', 'dstar-t', \
+	label=r'$D^{*+}$ transverse momentum $p_T$ [GeV / c]')
+plot_compare(filtered, rejected, 'pk_t', 'pk-t', \
+	label=r'Daughter $k$ transverse momentum $p_T$ [GeV / c]')
+plot_compare(filtered, rejected, 'pp_t', 'pp-t', \
+	label=r'Daughter $\pi$ transverse momentum $p_T$ [GeV / c]')
+	
+plot_compare(filtered, rejected, 'd0IP_log', 'd0-impact-parameter', \
+	label=r'$\log{\left(IP_{D^0} / \mathrm{\mu m}\right)}$')
+plot_compare(filtered, rejected, 'kIP_log', 'k-impact-parameter', \
+	label=r'$\log{\left(IP_{k} / \mathrm{\mu m}\right)}$')
+plot_compare(filtered, rejected, 'pIP_log', 'p-impact-parameter', \
+	label=r'$\log{\left(IP_{\pi} / \mathrm{\mu m}\right)}$')
+plot_compare(filtered, rejected, 'psIP_log', 'ps-impact-parameter', \
+	label=r'$\log{\left(IP_{\pi_s} / \mathrm{\mu m}\right)}$')
+	
+plot_compare(filtered, rejected, 's_z', 's_z', (-200, 200), \
+	label=r'$s_z$ [mm]')
+plot_compare(filtered, rejected, 'costheta', 'costheta', (.6,1), \
+	label=r'$\cos{\theta}$')
 
 
 filtered, rejected = cut(filtered, rejected, lambda d: 3500 <= d.pD0_t)
@@ -61,9 +76,9 @@ filtered, rejected = cut(filtered, rejected, lambda d: 500 <= d.pk_t)
 filtered, rejected = cut(filtered, rejected, lambda d: 500 <= d.pp_t)
 
 filtered, rejected = cut(filtered, rejected, lambda d: -2 <= d.d0IP_log <= 1)
-filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.kIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.pIP_log <= 3)
-filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.psIP_log <= 2)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.kIP_log <= 2.9)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.pIP_log <= 2.9)
+filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.psIP_log <= 1.9)
 
 filtered, rejected = cut(filtered, rejected, lambda d:  10 <= d.s_z <= 120)
 filtered, rejected = cut(filtered, rejected, lambda d:  0.95 <= d.costheta)
