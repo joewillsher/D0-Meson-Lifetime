@@ -1,1 +1,3 @@
-lifetime=0.408582370294
+lifetime=0.56
+lifetime_conv=0.33
+lifetime_exp=0.64
