@@ -101,18 +101,94 @@ class CandidateEvent(object):
 		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
 		return momentum_toSI(magnitude(pcomps_dstar))
 
-	@lazy_property.LazyProperty
-	def daughterEnergy(self):
+
+	def get_daughterEnergy(self, m_pi_si, m_k_si):
 		p_pi = momentum_toSI(magnitude(self.pd))
 		p_k = momentum_toSI(magnitude(self.kp))
-		m_pi_si, m_k_si = mass_toSI(m_pi), mass_toSI(m_k)
-		return np.sqrt((p_pi*c)**2 + m_pi_si**2 * c**4)   +   np.sqrt((p_k*c)**2 + m_k_si**2 * c**4)
+		return np.sqrt((p_pi*c)**2 + mass_toSI(m_pi_si)**2 * c**4)   +   np.sqrt((p_k*c)**2 + mass_toSI(m_k_si)**2 * c**4)
+
+	@lazy_property.LazyProperty
+	def daughterEnergy(self):
+		return self.get_daughterEnergy(m_pi, m_k)
+
+	@lazy_property.LazyProperty
+	def daughterEnergy_pp(self):
+		return self.get_daughterEnergy(m_pi, m_pi)
+
+	@lazy_property.LazyProperty
+	def daughterEnergy_kk(self):
+		print(self.get_daughterEnergy(m_k, m_k))
+		return self.get_daughterEnergy(m_k, m_k)
+
+	
+	def get_reconstructedMass(self, daughterEnergy):
+		return np.sqrt(daughterEnergy**2 - (self.pD0*c)**2)/c**2
 
 	@lazy_property.LazyProperty
 	def reconstructedD0Mass(self):
-		E_de = self.daughterEnergy
-		p_d0 = self.pD0
-		return np.sqrt(E_de**2 - (p_d0*c)**2)/c**2
+		return self.get_reconstructedMass(self.daughterEnergy)
+
+	@lazy_property.LazyProperty
+	def reconstructedD0Mass_pp(self):
+		return self.get_reconstructedMass(self.daughterEnergy_pp)
+
+	@lazy_property.LazyProperty
+	def reconstructedD0Mass_kk(self):
+		return self.get_reconstructedMass(self.daughterEnergy_kk)
+
+
+
+	def get_dStarEnergy(self, daughterEnergy):
+		p_pislow = momentum_toSI(magnitude(self.ps))
+		m_pi_si = mass_toSI(m_pi)
+		return daughterEnergy + np.sqrt((p_pislow*c)**2 + m_pi_si**2 * c**4)
+
+	def get_reconstructedDstarMass(self, starEnergy):
+		return np.sqrt(starEnergy**2 - magnitude(self.pDstar*c)**2)/c**2
+
+
+	@lazy_property.LazyProperty
+	def dStarEnergy(self):
+		return self.get_dStarEnergy(self.daughterEnergy)
+
+	@lazy_property.LazyProperty
+	def reconstructedDstarMass(self):
+		return self.get_reconstructedDstarMass(self.dStarEnergy)
+
+	# in MeV
+	@lazy_property.LazyProperty
+	def massDiff_d0dstar(self):
+		return mass_toMeV(self.reconstructedDstarMass - self.reconstructedD0Mass)
+
+	@lazy_property.LazyProperty
+	def dStarEnergy_kk(self):
+		return self.get_dStarEnergy(self.daughterEnergy_kk)
+
+	@lazy_property.LazyProperty
+	def reconstructedDstarMass_kk(self):
+		return self.get_reconstructedDstarMass(self.dStarEnergy_kk)
+
+	# in MeV
+	@lazy_property.LazyProperty
+	def massDiff_d0dstar_kk(self):
+		print(mass_toMeV(self.reconstructedDstarMass_kk - self.reconstructedD0Mass_kk))
+		return mass_toMeV(self.reconstructedDstarMass_kk - self.reconstructedD0Mass_kk)
+
+	@lazy_property.LazyProperty
+	def dStarEnergy_pp(self):
+		return self.get_dStarEnergy(self.daughterEnergy_pp)
+
+	@lazy_property.LazyProperty
+	def reconstructedDstarMass_pp(self):
+		return self.get_reconstructedDstarMass(self.dStarEnergy_pp)
+
+	# in MeV
+	@lazy_property.LazyProperty
+	def massDiff_d0dstar_pp(self):
+		return mass_toMeV(self.reconstructedDstarMass_pp - self.reconstructedD0Mass_pp)
+
+
+
 
 	@lazy_property.LazyProperty
 	def gamma(self):
@@ -127,23 +203,6 @@ class CandidateEvent(object):
 		p_d0 = self.pD0
 		return x * m_d0 / p_d0
 
-	@lazy_property.LazyProperty
-	def dStarEnergy(self):
-		E_d0 = self.daughterEnergy
-		p_pislow = momentum_toSI(magnitude(self.ps))
-		m_pi_si = mass_toSI(m_pi)
-		return E_d0 + np.sqrt((p_pislow*c)**2 + m_pi_si**2 * c**4)
-
-	@lazy_property.LazyProperty
-	def reconstructedDstarMass(self):
-		E = self.dStarEnergy
-		p_dstar = self.pDstar
-		return np.sqrt(E**2 - (p_dstar*c)**2)/c**2
-
-	# in MeV
-	@lazy_property.LazyProperty
-	def massDiff_d0dstar(self):
-		return mass_toMeV(self.reconstructedDstarMass - self.reconstructedD0Mass)
 
 	@lazy_property.LazyProperty
 	def d0IP_log(self):
@@ -185,6 +244,12 @@ class CandidateEvent(object):
 	def costheta(self):
 		p, r = self.pDstar, self.dstarDecay-self.interaction
 		return dot(p, r) / (magnitude(p) * magnitude(r))
+		
+		
+
+
+
+
 
 
 # reads a file and returns the D0 candidate events it lists
@@ -326,20 +391,19 @@ def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 	return signal_fit(dm, sig_A, sig_centre, sig_w) + background_fit(dm, bg_A, bg_p)
 
 
-# takes list of candidate events, cuts them by their mass diff
-def cutEventSet_massDiff(events, width):
-
+def massDiff_plot(events, ext_name='', expected_bg=30, methodName='massDiff_d0dstar'):
 # 	initial = [20, 0.25, 220, 146, 2]
-	initial = [30, 0.25, 90, 146, .65]
+	initial = [expected_bg, 0.25, 90, 146, .65]
 
-	diffs = [d.massDiff_d0dstar for d in events if d.massDiff_d0dstar < 170]
+	print(getattr(events[0], methodName))
+	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 170]
 	hist, bin_edges = np.histogram(diffs, bins=100)
 	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 	errors = np.sqrt(hist)
 
 	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors)
-
+	
 	print('po-fit', po)
 	fig, ax = newfig()
 	pl.plot(masses, hist, '.g')
@@ -351,8 +415,14 @@ def cutEventSet_massDiff(events, width):
 	ax.set_xlim(139, 170)
 	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	pl.ylabel(r'Relative frequency')
-	savefig('cut-fitted')
+	savefig('cut-fitted'+ext_name)
 	pl.close()
+	return po, bin_width
+
+
+# takes list of candidate events, cuts them by their mass diff
+def cutEventSet_massDiff(events, width):
+	po, bin_width = massDiff_plot(events)
 
 	# cut at 4 widths
 	bg_A, bg_p, sig_A, sig_centre, sig_w = po

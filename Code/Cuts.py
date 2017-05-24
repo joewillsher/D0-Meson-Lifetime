@@ -13,6 +13,11 @@ filtered = data
 filtered, rejected, po, bin_width = cutEventSet_massDiff(filtered, 1.)
 
 
+massDiff_plot(filtered, 'KK', methodName='massDiff_d0dstar_kk')
+massDiff_plot(filtered, 'PP', methodName='massDiff_d0dstar_pp')
+
+print('plot')
+
 newfig()
 pl.plot([f.massDiff_d0dstar for f in filtered], [f.pD0_t for f in filtered], ',g')
 pl.plot([f.massDiff_d0dstar for f in rejected], [f.pD0_t for f in rejected], ',r')
@@ -38,6 +43,12 @@ ax.set_ylim(ymin=0.1, ymax=20)
 savefig('dm-decayTime-correlation')
 pl.close()
 
+newfig()
+pl.plot([f.massDiff_d0dstar for f in filtered], [f.d0IP_log for f in filtered], ',g')
+pl.plot([f.massDiff_d0dstar for f in rejected], [f.d0IP_log for f in rejected], ',r')
+savefig('dm-d0IP_log-correlation')
+pl.close()
+
 
 plot_compare(filtered, rejected, 'decayTime', 'decayTime', (0, 10e-12), \
 	label=r'Decay time $t$ [ps]')
@@ -53,7 +64,7 @@ plot_compare(filtered, rejected, 'pk_t', 'pk-t', \
 	label=r'Daughter $k$ transverse momentum $p_T$ [GeV / c]')
 plot_compare(filtered, rejected, 'pp_t', 'pp-t', \
 	label=r'Daughter $\pi$ transverse momentum $p_T$ [GeV / c]')
-	
+
 plot_compare(filtered, rejected, 'd0IP_log', 'd0-impact-parameter', \
 	label=r'$\log{\left(IP_{D^0} / \mathrm{\mu m}\right)}$')
 plot_compare(filtered, rejected, 'kIP_log', 'k-impact-parameter', \
@@ -69,6 +80,7 @@ plot_compare(filtered, rejected, 'costheta', 'costheta', (.6,1), \
 	label=r'$\cos{\theta}$')
 
 
+print('cut')
 filtered, rejected = cut(filtered, rejected, lambda d: 3500 <= d.pD0_t)
 filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t)
 filtered, rejected = cut(filtered, rejected, lambda d: 200 <= d.pPslow_t)
@@ -83,6 +95,7 @@ filtered, rejected = cut(filtered, rejected, lambda d: -1 <= d.psIP_log <= 1.9)
 filtered, rejected = cut(filtered, rejected, lambda d:  10 <= d.s_z <= 120)
 filtered, rejected = cut(filtered, rejected, lambda d:  0.95 <= d.costheta)
 
+print('cut-done')
 
 
 # remove width
@@ -94,6 +107,7 @@ filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reco
 
 # filtered = [d for d in filtered if d.pPslow >= 1.3e3]
 
+# massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)
 
 # mass dist
