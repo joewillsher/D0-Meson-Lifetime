@@ -350,6 +350,7 @@ def plotData(data):
 	# decay time curve
 	hist, bin_edges = np.histogram(times, bins=120, range=(0., 8.))
 	num_events = len(times)
+	errors = np.sqrt(.999*hist)
 	print(num_events, ' events')
 	time = bin_edges[1:]
 
@@ -359,10 +360,11 @@ def plotData(data):
 	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, hist, [num_events/2, .4, .1, 0.])
 
 	newfig()
-	pl.semilogy(time, hist, 'or')
+	pl.semilogy(time, hist, '.r')
 	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
 	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
 	pl.semilogy(time, convoluted_exponential(time, *po_conv), '-b')
+	pl.errorbar(time, hist, yerr=errors, fmt='.r', capsize=0)
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay-fitted')
 	pl.close()
@@ -371,6 +373,7 @@ def plotData(data):
 	pl.plot(time, hist, '-k')
 	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
 	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
+	pl.errorbar(time, hist, yerr=errors, fmt='.k')
 	pl.plot(time, convoluted_exponential(time, *po_conv), '-b')
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay')
@@ -383,9 +386,9 @@ def plotData(data):
 	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
 	with open("data.txt", "w") as text_file:
-	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime, 2))
-	    text_file.write("lifetime_conv=%s\n" % np.round(po_conv[1], 2))
-	    text_file.write("lifetime_exp=%s\n" % np.round(partial_lifetime, 2))
+	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime*1e3, 0))
+	    text_file.write("lifetime_conv=%s\n" % np.round(po_conv[1]*1e3, 0))
+	    text_file.write("lifetime_exp=%s\n" % np.round(partial_lifetime*1e3, 0))
 
 
 
@@ -436,19 +439,19 @@ def massDiff_plot(events, ext_name='', expected_bg=30, methodName='massDiff_d0ds
 
 	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 165]
 	hist, bin_edges = np.histogram(diffs, bins=100)
+	N = np.sum(diffs)
 	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 
-# 	errors = [sem([getattr(d, methodName) for d in events if el <= getattr(d, methodName) < eh]) for el, eh in zip(bin_edges[:-1], bin_edges[1:])]
-# 	print(bin_sems, errors)
+	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
-		
+			
 	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors)
 	
 	print('po-fit', po)
 	fig, ax = newfig()
 	pl.plot(masses, hist, '.g')
-	pl.errorbar(masses, hist, yerr=errors, fmt='.g')
+	pl.errorbar(masses, hist, yerr=errors, fmt=',g')
 	
 	masses_continuous = np.arange(m_pi, masses[-1], .1)
 	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-r')
@@ -494,12 +497,12 @@ def cut(accepted, rejected, cond):
 
 
 
-def error_hisogram(x, xbins, y):
-	n, _ = np.histogram(x, bins=xbins)
-	sy, _ = np.histogram(x, bins=xbins, weights=y)
-	sy2, _ = np.histogram(x, bins=xbins, weights=y*y)
-	mean = sy / n
-	return np.sqrt(sy2/n - mean*mean)/np.sqrt(n)
+# def error_hisogram(x, xbins, y):
+# 	n, _ = np.histogram(x, bins=xbins)
+# 	sy, _ = np.histogram(x, bins=xbins, weights=y)
+# 	sy2, _ = np.histogram(x, bins=xbins, weights=y*y)
+# 	mean = sy / n
+# 	return np.sqrt(sy2/n - mean*mean)/np.sqrt(n)
 
 
 
@@ -511,5 +514,5 @@ def estimate_background(po, filtered, width):
 
 	bg_fraction = bg_integral/len(filtered)
 
-	print("BACKGROUND EST", bg_integral, bg_fraction)
+	print("BACKGROUND EST", bg_integral, len(filtered), bg_fraction)
 	return bg_integral, bg_fraction

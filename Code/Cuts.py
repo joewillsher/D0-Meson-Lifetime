@@ -18,7 +18,7 @@ filtered = data
 # cut on mass diff
 width = 3.
 filtered, rejected, po, bin_width = cutEventSet_massDiff(filtered, width)
-
+print(len(data))
 bg_integral, bg_fraction = estimate_background(po, filtered, width)
 
 if not '--no-plot' in sys.argv:
@@ -106,8 +106,8 @@ filtered, rejected = cut(filtered, rejected, lambda d:  10 <= d.s_z <= 120)
 
 print('cut-done')
 
-massDiff_plot(filtered, 'after')
-estimate_background(po, filtered, width)
+after_po, after_bin_width = massDiff_plot(filtered, 'after')
+estimate_background(after_po, filtered, 3.)
 
 
 # remove width
