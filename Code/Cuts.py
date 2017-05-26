@@ -17,7 +17,8 @@ print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 filtered = data
 # cut on mass diff
 width = 3.
-filtered, rejected, po, bin_width = cutEventSet_massDiff(filtered, width)
+filtered, background, po, bin_width = cutEventSet_massDiff(filtered, width)
+rejected = background
 print(len(data))
 bg_integral, bg_fraction = estimate_background(po, filtered, width)
 
@@ -90,11 +91,11 @@ if not '--no-plot' in sys.argv:
 
 
 print('cut')
-filtered, rejected = cut(filtered, rejected, lambda d: 4500 <= d.pD0_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t < 20000)
-filtered, rejected = cut(filtered, rejected, lambda d: 200 <= d.pPslow_t < 2500)
-filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pk_t)
-filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pp_t)
+filtered, rejected = cut(filtered, rejected, lambda d: 4500 <= d.pD0_t) # 4500, 2500
+filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t < 20000) # 2500, 1400
+filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t < 2500) # 300, 200
+filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pk_t) # 1000, 700
+filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pp_t) # 1000, 700
 
 filtered, rejected = cut(filtered, rejected, lambda d: -5 <= d.d0IP_log <= -2.5)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.kIP_log <= -0.1)
@@ -102,12 +103,12 @@ filtered, rejected = cut(filtered, rejected, lambda d: -5 <= d.d0IP_log <= -2.5)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.psIP_log <= -1.1)
 
 filtered, rejected = cut(filtered, rejected, lambda d:  10 <= d.s_z <= 120)
-# filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
+filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
 
 print('cut-done')
 
 after_po, after_bin_width = massDiff_plot(filtered, 'after')
-estimate_background(after_po, filtered, 3.)
+bg_integral, bg_fraction = estimate_background(after_po, filtered, 3.)
 
 
 # remove width
@@ -121,6 +122,7 @@ filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reco
 
 # massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)
+calculateLifetime(filtered, background, bg_fraction)
 
 # mass dist
 newfig()

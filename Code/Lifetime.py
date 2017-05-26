@@ -338,9 +338,12 @@ def plotData(data):
 	pl.close()
 
 
+def calculateLifetime(data, bg, bg_fraction):
 	# decay time dist
-	times = [d.decayTime*1e12 for d in data if d. decayTime < 10e-12]
+	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
+	bg_times = [d.decayTime*1e12 for d in bg if d.decayTime < 10e-12]
 	np.save('TIMES', times)
+	np.save('BG_TIMES', bg_times)
 	
 	newfig()
 	pl.hist(times, bins=100, range=(0, 50))
@@ -348,32 +351,45 @@ def plotData(data):
 	pl.close()
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=120, range=(0., 8.))
-	num_events = len(times)
-	errors = np.sqrt(.999*hist)
-	print(num_events, ' events')
-	time = bin_edges[1:]
+	hist, bin_edges = np.histogram(times, bins=120, range=(0., 10.))
+	bg_hist, bg_bin_edges = np.histogram(bg_times, bins=120, range=(0., 10.))
+
+	num_events = np.sum(hist)
+	num_bg = np.sum(bg_hist)
+	# get the mean value in each bin
+	sy, _ = np.histogram(times, bins=bin_edges, weights=times)
+	time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
+	print(time)
+
+	bg_hist_normalised = bg_hist/num_bg * bg_fraction * num_events
+	subtracted_hist = hist - bg_hist_normalised
+	print(subtracted_hist, np.sum(subtracted_hist))
+	errors = [x*.999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-0.01]
 
 	# decay time fitting
-	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, hist, [num_events, 1.5]) #TODO: error analysis, np.repeat(0.03, l-transition_idx), absolute_sigma=True)
+	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [num_events, 1.5])
 
-	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, hist, [num_events/2, .4, .1, 0.])
+	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, subtracted_hist, [num_events/2, .41, .05, 0.], errors, absolute_sigma=True)
 
 	newfig()
-	pl.semilogy(time, hist, '.r')
-	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
-	pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
+	pl.semilogy(time, hist, '.g')
+	pl.semilogy(time, subtracted_hist, '.r')
+	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
+# 	if not is_latex:
+# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
+# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
 	pl.semilogy(time, convoluted_exponential(time, *po_conv), '-b')
-	pl.errorbar(time, hist, yerr=errors, fmt='.r', capsize=0)
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay-fitted')
 	pl.close()
 
 	newfig()
-	pl.plot(time, hist, '-k')
-	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-r')
-	pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-	pl.errorbar(time, hist, yerr=errors, fmt='.k')
+	pl.plot(time, hist, '-g')
+	pl.plot(time, subtracted_hist, '-r')
+	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
+	# 	if not is_latex:
+	# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
+	# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
 	pl.plot(time, convoluted_exponential(time, *po_conv), '-b')
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay')
@@ -382,7 +398,7 @@ def plotData(data):
 
 	partial_lifetime = po[1]
 	mean_lifetime = np.mean(times)
-	print('convpo=', po_conv)
+	print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
 	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
 	with open("data.txt", "w") as text_file:
@@ -450,12 +466,12 @@ def massDiff_plot(events, ext_name='', expected_bg=30, methodName='massDiff_d0ds
 	
 	print('po-fit', po)
 	fig, ax = newfig()
-	pl.plot(masses, hist, '.g')
-	pl.errorbar(masses, hist, yerr=errors, fmt=',g')
+	pl.plot(masses, hist, '.r')
+	pl.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
 	
 	masses_continuous = np.arange(m_pi, masses[-1], .1)
-	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-r')
-	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', alpha=0.5)
+	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-g')
+	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
 	ax.set_xlim(139, 165)
 	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	pl.ylabel(r'Relative frequency')

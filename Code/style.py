@@ -14,13 +14,17 @@ def figsize(scale):
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
-if '--latex-plot' in sys.argv:
+is_latex = '--latex-plot' in sys.argv
+if is_latex:
 	plt.use('pgf')
 	pgf_with_latex = {                      # setup matplotlib to use latex for output
 	"pgf.texsystem": "pdflatex",        # change this if using xetex or lautex
 	"text.usetex": True,                # use LaTeX to write all text
 	"font.family": "serif",
 	"font.serif": [],                   # blank entries should cause plots to inherit fonts from the document
+	"lines.markersize": 2,
+	"lines.linewidth" : .6,
+	"boxplot.boxprops.linewidth": .6,
 	"font.sans-serif": [],
 	"font.monospace": [],
 	"axes.labelsize": 8,               # LaTeX default is 10pt font.
