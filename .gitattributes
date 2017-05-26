@@ -1,1 +1,1 @@
-git lfs track "*.psd"
+*.txt filter=lfs diff=lfs merge=lfs -text
