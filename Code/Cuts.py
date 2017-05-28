@@ -22,11 +22,13 @@ rejected = background
 print(len(data))
 bg_integral, bg_fraction = estimate_background(po, filtered, width)
 
+
+
 if not '--no-plot' in sys.argv:
 	print('plot')
 
-	massDiff_plot(filtered, 'KK', methodName='massDiff_d0dstar_kk')
-	massDiff_plot(filtered, 'PP', methodName='massDiff_d0dstar_pp')
+	massDiff_plot(data, ext_name='-KK', methodName='reconstructedD0Mass_kk', range=None)
+	massDiff_plot(data, ext_name='-PP', methodName='reconstructedD0Mass_pp', range=None)
 
 	newfig()
 	pl.plot([f.massDiff_d0dstar for f in filtered], [f.pD0_t for f in filtered], ',g')

@@ -450,7 +450,7 @@ def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 
 
 
-def massDiff_plot(events, ext_name='', expected_bg=30, methodName='massDiff_d0dstar'):
+def massDiff_plot(events, ext_name='', expected_bg=30, range=(139, 165), methodName='massDiff_d0dstar'):
 	initial = [expected_bg, 0.25, 90, 146, .65]
 
 	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 165]
@@ -472,7 +472,7 @@ def massDiff_plot(events, ext_name='', expected_bg=30, methodName='massDiff_d0ds
 	masses_continuous = np.arange(m_pi, masses[-1], .1)
 	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-g')
 	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
-	ax.set_xlim(139, 165)
+	ax.set_xlim(range)
 	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	pl.ylabel(r'Relative frequency')
 	savefig('cut-fitted'+ext_name)
