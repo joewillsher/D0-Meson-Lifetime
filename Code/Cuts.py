@@ -27,8 +27,8 @@ bg_integral, bg_fraction = estimate_background(po, filtered, width)
 if not '--no-plot' in sys.argv:
 	print('plot')
 
-	massDiff_plot(data, ext_name='-KK', methodName='reconstructedD0Mass_kk', range=None)
-	massDiff_plot(data, ext_name='-PP', methodName='reconstructedD0Mass_pp', range=None)
+	massDiff_plot(data, ext_name='-KK', fit=False, methodName='reconstructedD0Mass_kk', range=None)
+	massDiff_plot(data, ext_name='-PP', fit=False, methodName='reconstructedD0Mass_pp', range=None)
 
 	newfig()
 	pl.plot([f.massDiff_d0dstar for f in filtered], [f.pD0_t for f in filtered], ',g')
@@ -99,7 +99,7 @@ filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t < 2500)
 filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pk_t) # 1000, 700
 filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pp_t) # 1000, 700
 
-filtered, rejected = cut(filtered, rejected, lambda d: -5 <= d.d0IP_log <= -2.5)
+# filtered, rejected = cut(filtered, rejected, lambda d: -5 <= d.d0IP_log <= -2.5)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.kIP_log <= -0.1)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.pIP_log <= -0.1)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.psIP_log <= -1.1)
@@ -120,7 +120,6 @@ filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reco
 
 
 
-# filtered = [d for d in filtered if d.pPslow >= 1.3e3]
 
 # massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)

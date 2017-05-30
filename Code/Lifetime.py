@@ -293,6 +293,12 @@ def convoluted_exponential(t, A, l, s, m):
 		return 0
 	return A* l/2 * np.exp(2*m + l * s**2 - 2*t) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
 
+def gaussian(t, A, s, m):
+	return A * np.exp(-(t-m)**2/(2*s**2))
+
+def double_gaussian(t, A, m, s1, s2, f):
+	return A * (f * np.exp(-(t-m)**2/(2*s1**2)) + \
+		(1-f) * np.exp(-(t-m)**2/(2*s2**2)))
 
 
 
@@ -359,12 +365,10 @@ def calculateLifetime(data, bg, bg_fraction):
 	# get the mean value in each bin
 	sy, _ = np.histogram(times, bins=bin_edges, weights=times)
 	time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
-	print(time)
 
 	bg_hist_normalised = bg_hist/num_bg * bg_fraction * num_events
 	subtracted_hist = hist - bg_hist_normalised
-	print(subtracted_hist, np.sum(subtracted_hist))
-	errors = [x*.999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-0.01]
+	errors = [x*.9999999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-.0000000001]
 
 	# decay time fitting
 	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [num_events, 1.5])
@@ -384,12 +388,12 @@ def calculateLifetime(data, bg, bg_fraction):
 	pl.close()
 
 	newfig()
-	pl.plot(time, hist, '-g')
-	pl.plot(time, subtracted_hist, '-r')
-	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
-	# 	if not is_latex:
-	# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
-	# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
+	pl.plot(time, subtracted_hist, ',r')
+	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r')
+	pl.plot(time, hist, '.r')
+# 	if not is_latex:
+# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
+# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
 	pl.plot(time, convoluted_exponential(time, *po_conv), '-b')
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay')
@@ -437,11 +441,11 @@ def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 def background_fit(dm, bg_A, bg_p):
 	return bg_A * (dm-m_pi)**bg_p
 	
-def signal_fit(dm, sig_A, sig_centre, sig_w):
-	return sig_A * np.exp(-(dm-sig_centre)**2/(2*sig_w**2))
 	
-def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
-	return signal_fit(dm, sig_A, sig_centre, sig_w) + background_fit(dm, bg_A, bg_p)
+signal_fit = double_gaussian
+# 2.07302440e+01   2.98646045e-01   1.77728941e+03   1.45465825e+02		7.79647227e+00  -6.76180865e-01   4.09293926e+00]
+def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f):
+	return signal_fit(dm, sig_A, sig_centre, sig_w1, sig_w2, f) + background_fit(dm, bg_A, bg_p)
 
 
 
@@ -450,8 +454,7 @@ def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w):
 
 
 
-def massDiff_plot(events, ext_name='', expected_bg=30, range=(139, 165), methodName='massDiff_d0dstar'):
-	initial = [expected_bg, 0.25, 90, 146, .65]
+def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='massDiff_d0dstar'):
 
 	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 165]
 	hist, bin_edges = np.histogram(diffs, bins=100)
@@ -459,25 +462,31 @@ def massDiff_plot(events, ext_name='', expected_bg=30, range=(139, 165), methodN
 	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 
+	initial = [max(hist)*0.04, 0.25, max(hist), 146, .1, 1., .9]
+
 	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
-			
-	po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors)
+		
+	if fit:	
+		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=(0, [np.inf, np.inf, np.inf, np.inf, 1, 5, np.inf]))
+		print('po-fit', po)
 	
-	print('po-fit', po)
 	fig, ax = newfig()
 	pl.plot(masses, hist, '.r')
 	pl.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
 	
-	masses_continuous = np.arange(m_pi, masses[-1], .1)
-	pl.plot(masses_continuous, signal_fit(masses_continuous, *po[2:]), '-g')
-	pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
+	if fit:
+		masses_continuous = np.arange(m_pi, masses[-1], .02)
+		pl.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
+# 		pl.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[6], po[4], po[3]), '-k')
+# 		pl.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[6]), po[5], po[3]), '-k')
+		pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
 	ax.set_xlim(range)
 	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	pl.ylabel(r'Relative frequency')
 	savefig('cut-fitted'+ext_name)
 	pl.close()
-	return po, bin_width
+	return po if fit else [], bin_width
 
 
 
@@ -489,7 +498,8 @@ def cutEventSet_massDiff(events, width):
 	po, bin_width = massDiff_plot(events)
 
 	# cut at 4 widths
-	bg_A, bg_p, sig_A, sig_centre, sig_w = po
+	bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f = po
+	sig_w = max(sig_w1, sig_w2)
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	print('range', range_low, range_up)
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
