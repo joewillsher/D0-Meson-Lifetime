@@ -63,30 +63,64 @@ print('chi_squared', chi_squared, 'mean_chi_squared', mean_chi_squared, 'RSS', R
 
 N=len(times)
 T=sum(times)
-tau = np.linspace(0.3, 0.6, 1000)
-negative_log_likelihood = N*np.log(tau) + T/tau
+range_tau = np.linspace(0.3, 0.7, 1000)
+
+def negative_log_likelihood(tau):
+    return N*np.log(tau) + T/tau
+
 def DL_Dtau(x):
     return (N/x) - (T/(x**2))
 
 def DL_2_Dtau(x):
     return -N/(x**2) + (2*T)/(x**3)
 
-DL=DL_Dtau(tau)
+L=negative_log_likelihood(range_tau)
+DL=DL_Dtau(range_tau)
 
-pl.plot(tau, DL)
+pl.plot(range_tau, DL)
 pl.savefig('DL vs tau')
+pl.close()
 
-tau_0 = 0.4
+#pl.plot(range_tau, L)
+#pl.savefig('L vs tau')
+tau_0 = 0.3
 tau = tau_0
 
-def mod(x) :
-    if x < 0:
-        return - x
-    else:
-        return x
+#def convoluted_exponential(t, A, l, s, m):
+	#if s < 0 and m == 0:
+		#return 0
+	#return A* l/2 * np.exp(2*m + l * s**2 - 2*t) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
+def Newton_Raphson_tau(tau):
+    while np.abs(DL_Dtau(tau)) >= 0.005:
+        tau_n = tau - DL_Dtau(tau)/DL_2_Dtau(tau)
+        tau = tau_n
+    return tau
 
-while mod(DL_Dtau(tau)) >= 0.005:
-    tau_n = tau - DL_Dtau(tau)/DL_2_Dtau(tau)
-    tau = tau_n
+tau_f = Newton_Raphson_tau(tau)
+print ('tau_f', tau_f)
 
-print ('tau', tau )
+thresh = negative_log_likelihood(tau_f) +1
+
+def Neg_Log_1(tau):
+    return N*np.log(tau) + T/tau - thresh
+
+NL_1 = Neg_Log_1(range_tau)
+
+def Newton_Raphson_uncertainty(x):
+    while np.abs(Neg_Log_1(x)) >= 0.005:
+        x_n = x - Neg_Log_1(x)/DL_Dtau(x)
+        x=x_n
+    return x
+
+x_1= Newton_Raphson_uncertainty(tau_f - 0.02)
+x_2 = Newton_Raphson_uncertainty(tau_f + 0.02)
+
+print ('X_1, X_2', x_1, x_2)
+
+def error(x_1, x_2, x):
+    sigma = np.abs(x-x_1) + np.abs(x-x_2)
+    return sigma
+
+S = 0.5 * error(x_1, x_2, tau_f)
+
+print('lifetime ', tau_f, '+- ', S, ' ps')
