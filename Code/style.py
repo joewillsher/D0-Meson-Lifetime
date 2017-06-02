@@ -7,12 +7,13 @@ import matplotlib.pyplot as pl
 
 golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
 
+fig_width_pt = 370                        # Get this from LaTeX using \the\textwidth
+inches_per_pt = 1.0/72.27                       # Convert pt to inch
+
 def figsize(scale, height_adj):
-	fig_width_pt = 370                        # Get this from LaTeX using \the\textwidth
-	inches_per_pt = 1.0/72.27                       # Convert pt to inch
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
 	fig_height = fig_width*golden_mean + height_adj              # height in inches
-	fig_size = [fig_width,fig_height]
+	fig_size = [fig_width, fig_height]
 	return fig_size
 
 is_latex = '--latex-plot' in sys.argv
@@ -33,14 +34,14 @@ if is_latex:
 	"legend.fontsize": 7,               # Make the legend/label fonts a little smaller
 	"xtick.labelsize": 7,
 	"ytick.labelsize": 7,
-	"figure.figsize": figsize(0.9),     # default fig size of 0.9 textwidth
+	"figure.figsize": figsize(0.7),     # default fig size of 0.7 textwidth
 	"figure.autolayout" : True,
 	"pgf.preamble": [
-	r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts becasue your computer can handle it :)
-	r"\usepackage[T1]{fontenc}",        # plots will be generated using this preamble
-	r"\usepackage{/Users/joe/Documents/SummerProject/Report/atlasphysics}",    # use utf8 fonts becasue your computer can handle it :)
-			]
-		}
+		r"\usepackage[utf8x]{inputenc}",    # use utf8 fonts becasue your computer can handle it :)
+		r"\usepackage[T1]{fontenc}",        # plots will be generated using this preamble
+		r"\usepackage{/Users/joe/Documents/SummerProject/Report/atlasphysics}",    # use utf8 fonts because your computer can handle it :)
+		]
+	}
 	plt.rcParams.update(pgf_with_latex)
 
 	# I make my own newfig and savefig functions

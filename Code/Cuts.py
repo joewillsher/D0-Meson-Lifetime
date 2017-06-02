@@ -109,7 +109,7 @@ filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
 
 print('cut-done')
 
-after_po, after_bin_width = massDiff_plot(filtered, 'after')
+after_po, after_bin_width = massDiff_plot(filtered, 'after', range=get_sig_range(po, width))
 bg_integral, bg_fraction = estimate_background(after_po, filtered, 3.)
 
 

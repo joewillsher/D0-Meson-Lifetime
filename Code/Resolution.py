@@ -5,7 +5,7 @@ times = [d.dStarDecayTime*1e12 for d in filtered]
 # print(times)
 print(np.mean(times))
 
-pl.hist(times, 40, range=(0,3), histtype='step', fill=False)
+pl.hist(times, 40, range=(-3,3), histtype='step', fill=False)
 # sy, _ = np.histogram(times, bins=bin_edges, weights=times)
 # time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
 

@@ -220,17 +220,17 @@ class CandidateEvent(object):
 		m_d0 = self.reconstructedD0Mass
 		p_d0 = self.pD0
 		return x * m_d0 / p_d0
-# 		x = (self.dstarDecay-self.d0Decay)*1e-3
-# 		m_ds = self.reconstructedD0Mass
-# 		p_ds = self.pD0_comps
-# 		return np.sign(dot(x, p_ds)) * magnitude(x) * m_ds / magnitude(p_ds)
 
 	@lazy_property.LazyProperty
 	def dStarDecayTime(self):
+# 		x = (self.bDecay-self.dstarDecay)*1e-3
+# 		m_ds = self.reconstructedDstarMass
+# 		p_ds = self.pDstar_comps
+# 		return  magnitude(x) * m_ds / magnitude(p_ds)
 		x = (self.bDecay-self.dstarDecay)*1e-3
 		m_ds = self.reconstructedDstarMass
 		p_ds = self.pDstar_comps
-		return  magnitude(x) * m_ds / magnitude(p_ds)
+		return np.sign(dot(x, p_ds)) * magnitude(x) * m_ds / magnitude(p_ds)
 
 
 	@lazy_property.LazyProperty
@@ -489,18 +489,24 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 
-	initial = [max(hist)*0.04, 0.25, max(hist), 146, .1, 1., .9]
+	initial = [max(hist)*0.04, 0.25, max(hist), 145.5, .1, 1., .9]
 
 	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
-		
+	x_errors = np.repeat(bin_width/2, len(errors))
+	
 	if fit:	
 		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=(0, [np.inf, np.inf, np.inf, np.inf, 1, 5, np.inf]))
 		print('po-fit', po)
 	
-	fig = newrawfig()
-	subpl_height = .2
-	ax = fig.add_axes([0, subpl_height, default_width, default_width*golden_mean-subpl_height])
+	fig = newrawfig(width=2)
+	margin = .1
+	out_margin = .02
+	subpl_height = .3
+	width, height = 1, 1
+	# x_l, x_b, w, h
+	ax = fig.add_axes([margin, subpl_height, width-margin-out_margin, height-subpl_height-margin])
+	ax.axes.get_xaxis().set_visible(False)
 	ax.plot(masses, hist, '.r')
 	ax.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
 	
@@ -509,18 +515,26 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
 # 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[6], po[4], po[3]), '-k')
 # 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[6]), po[5], po[3]), '-k')
-		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
+		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.35)
 		
-		frame1 = fig.add_axes([0,0, default_width, subpl_height])
-		frame1.plot(masses_continuous, masses_continuous*0, '-g')
-		frame1.plot(masses, combined_fit(masses, *po)-hist, '.r')
-		frame1.errorbar(masses, combined_fit(masses, *po)-hist, yerr=errors, fmt=',r')
-		frame1.set_xlim(range)
+		pull_ax = fig.add_axes([margin, margin, width-margin-out_margin, subpl_height-margin])
+		pulls = (hist-combined_fit(masses, *po))/errors
+		print(pulls)
+		pull_ax.bar(masses, pulls, bin_width, edgecolor="None")
+		pull_ax.set_xlim(range)
+# 		pull_ax.set_ylim(-5,5)
+			
+		pull_ax.set_ylabel(r'Pull')
+		pull_ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
+		
+		for tick in pull_ax.yaxis.get_major_ticks():
+			tick.label.set_fontsize(6)
 
+	else:
+		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	
 	ax.set_xlim(range)
-	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
-	pl.ylabel(r'Relative frequency')
+	ax.set_ylabel(r'Relative frequency')
 	savefig('cut-fitted'+ext_name)
 	pl.close()
 	return po if fit else [], bin_width
@@ -535,9 +549,7 @@ def cutEventSet_massDiff(events, width):
 	po, bin_width = massDiff_plot(events)
 
 	# cut at 4 widths
-	bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f = po
-	sig_w = max(sig_w1, sig_w2)
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	range_low, range_up = get_sig_range(po, width)
 	print('range', range_low, range_up)
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
 	rejected = [event for event in events if not range_low <= event.massDiff_d0dstar <= range_up]
@@ -568,14 +580,19 @@ def cut(accepted, rejected, cond):
 # 	return np.sqrt(sy2/n - mean*mean)/np.sqrt(n)
 
 
+def get_sig_range(po, width):
+	bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f = po
+	sig_w = max(sig_w1, sig_w2)
+	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	return range_low, range_up
 
 
 def estimate_background(po, filtered, width):
-	sig_centre, sig_w = po[3], po[4]
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	range_low, range_up = get_sig_range(po, width)
 	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1]))[0]
+	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[2], po[3], po[4], po[5], po[6]))[0]
 
-	bg_fraction = bg_integral/len(filtered)
+	bg_fraction = bg_integral/(sig_integral + bg_integral)
 
-	print("BACKGROUND EST", bg_integral, len(filtered), bg_fraction)
+	print("BACKGROUND EST", bg_integral, len(filtered), str(bg_fraction*100) + "%")
 	return bg_integral, bg_fraction
