@@ -33,12 +33,12 @@ bg_hist_normalised = bg_hist/num_bg * bg_fraction * num_events
 subtracted_hist = hist - bg_hist_normalised
 print(subtracted_hist, np.sum(subtracted_hist))
 print(subtracted_hist, np.sum(subtracted_hist))
-errors = [x*.999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-0.01]
+errors = [x*.9999999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-.0000000001]
 
 # decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [num_events, 1.5])
+po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [1400, 1.5])
 
-po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, subtracted_hist, [num_events/2, .41, .05, 0.], errors, absolute_sigma=True)
+po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, subtracted_hist, [num_events/2, .41, .61, 0.], errors, absolute_sigma=True)
 
 newfig()
 pl.semilogy(time, hist, '.g')

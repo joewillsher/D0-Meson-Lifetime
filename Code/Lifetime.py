@@ -55,8 +55,9 @@ def energy_toMeV(p: float):
 # Keep all data about the type together in a type, so vals for an event are stored next to each other on the heap.
 class CandidateEvent(object):
 
-	def __init__(self, interaction: Position, dstarDecay: Position, d0Decay: Position, kp: Momentum, pd: Momentum, ps: Momentum):
+	def __init__(self, interaction: Position, dstarDecay: Position, d0Decay: Position, bDecay: Position, kp: Momentum, pd: Momentum, ps: Momentum):
 		self.interaction = interaction
+		self.bDecay = bDecay
 		self.dstarDecay = dstarDecay
 		self.d0Decay = d0Decay
 		self.kp = kp
@@ -66,6 +67,7 @@ class CandidateEvent(object):
 	def __repr__(self):
 		str = super(CandidateEvent, self).__repr__() + "\n"
 		str += "Dstar_OWNPV\t" + np.array_str(self.interaction) + "\n"
+		str += "B_ENDVERTEX\t" + np.array_str(self.bDecay) + "\n"
 		str += "Dstar_ENDVERTEX\t" + np.array_str(self.dstarDecay) + "\n"
 		str += "D_ENDVERTEX\t" + np.array_str(self.d0Decay) + "\n"
 		str += "K\t\t" + np.array_str(self.kp) + "\n"
@@ -76,6 +78,10 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def labFrameTravel(self):
 		return magnitude(self.dstarDecay-self.d0Decay) * 1e-3 # convert mm -> m
+
+	@lazy_property.LazyProperty
+	def dStarlabFrameTravel(self):
+		return magnitude(self.bDecay-self.dstarDecay) * 1e-3 # convert mm -> m
 
 	@lazy_property.LazyProperty
 	def pD0_t(self):
@@ -104,6 +110,16 @@ class CandidateEvent(object):
 	def pDstar(self):
 		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
 		return momentum_toSI(magnitude(pcomps_dstar))
+
+	@lazy_property.LazyProperty
+	def pDstar_comps(self):
+		pcomps_dstar = self.kp+self.pd+self.ps # in MeV
+		return momentum_toSI(pcomps_dstar)
+
+	@lazy_property.LazyProperty
+	def pD0_comps(self):
+		pcomps_dstar = self.kp+self.pd # in MeV
+		return momentum_toSI(pcomps_dstar)
 
 
 	def get_daughterEnergy(self, m_pi_si, m_k_si):
@@ -204,6 +220,17 @@ class CandidateEvent(object):
 		m_d0 = self.reconstructedD0Mass
 		p_d0 = self.pD0
 		return x * m_d0 / p_d0
+# 		x = (self.dstarDecay-self.d0Decay)*1e-3
+# 		m_ds = self.reconstructedD0Mass
+# 		p_ds = self.pD0_comps
+# 		return np.sign(dot(x, p_ds)) * magnitude(x) * m_ds / magnitude(p_ds)
+
+	@lazy_property.LazyProperty
+	def dStarDecayTime(self):
+		x = (self.bDecay-self.dstarDecay)*1e-3
+		m_ds = self.reconstructedDstarMass
+		p_ds = self.pDstar_comps
+		return  magnitude(x) * m_ds / magnitude(p_ds)
 
 
 	@lazy_property.LazyProperty
@@ -269,7 +296,7 @@ def readFile(name: Text):
 
 		# ignore the coordinate, remove the last '_X'/'_PX' part in the header name
         header_raw_names = ['_'.join(name.split('_')[:-1]) for name in header[::3]]
-        order = ['Dstar_OWNPV', 'Dstar_ENDVERTEX', 'D_ENDVERTEX', 'K', 'Pd', 'Ps']
+        order = ['Dstar_OWNPV', 'Dstar_ENDVERTEX', 'D_ENDVERTEX', 'B_ENDVERTEX', 'K', 'Pd', 'Ps']
         print('names', header_raw_names)
         # get the indicies of these params in the row
         elementIdxs = [header_raw_names.index(x) for x in order]
@@ -277,9 +304,9 @@ def readFile(name: Text):
 
         for row in rows:
         	# reshape row into several 3-vectors
-        	nums = [float(x) for x in row]
+        	nums = [float(x) for x in row[:-1]] # remove Dstar_FD ([:-1]) bc scalars don't work
         	data = np.reshape(np.array(nums), (len(nums)//3, int(3)))
-        	cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]])
+        	cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]], data[elementIdxs[6]])
         	cands.append(cand)
 
         return cands
@@ -471,16 +498,26 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=(0, [np.inf, np.inf, np.inf, np.inf, 1, 5, np.inf]))
 		print('po-fit', po)
 	
-	fig, ax = newfig()
-	pl.plot(masses, hist, '.r')
-	pl.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
+	fig = newrawfig()
+	subpl_height = .2
+	ax = fig.add_axes([0, subpl_height, default_width, default_width*golden_mean-subpl_height])
+	ax.plot(masses, hist, '.r')
+	ax.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
 	
 	if fit:
 		masses_continuous = np.arange(m_pi, masses[-1], .02)
-		pl.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
-# 		pl.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[6], po[4], po[3]), '-k')
-# 		pl.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[6]), po[5], po[3]), '-k')
-		pl.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
+		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
+# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[6], po[4], po[3]), '-k')
+# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[6]), po[5], po[3]), '-k')
+		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.5)
+		
+		frame1 = fig.add_axes([0,0, default_width, subpl_height])
+		frame1.plot(masses_continuous, masses_continuous*0, '-g')
+		frame1.plot(masses, combined_fit(masses, *po)-hist, '.r')
+		frame1.errorbar(masses, combined_fit(masses, *po)-hist, yerr=errors, fmt=',r')
+		frame1.set_xlim(range)
+
+	
 	ax.set_xlim(range)
 	pl.xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	pl.ylabel(r'Relative frequency')

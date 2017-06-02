@@ -5,12 +5,13 @@ import matplotlib.pyplot as pl
 
 # http://bkanuka.com/articles/native-latex-plots/
 
-def figsize(scale):
+golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
+
+def figsize(scale, height_adj):
 	fig_width_pt = 370                        # Get this from LaTeX using \the\textwidth
 	inches_per_pt = 1.0/72.27                       # Convert pt to inch
-	golden_mean = (np.sqrt(5.0)-1.0)/2.0            # Aesthetic ratio (you could change this)
 	fig_width = fig_width_pt*inches_per_pt*scale    # width in inches
-	fig_height = fig_width*golden_mean              # height in inches
+	fig_height = fig_width*golden_mean + height_adj              # height in inches
 	fig_size = [fig_width,fig_height]
 	return fig_size
 
@@ -44,9 +45,16 @@ if is_latex:
 
 	# I make my own newfig and savefig functions
 
-	def newfig(width=.7):
+	default_width = .7
+
+	def newrawfig(width=.7, height_adj=0):
 		pl.clf()
-		fig = pl.figure(figsize=figsize(width))
+		fig = pl.figure(figsize=figsize(width, height_adj))
+		return fig
+
+	def newfig(width=.7, height_adj=0):
+		pl.clf()
+		fig = pl.figure(figsize=figsize(width, height_adj))
 		ax = fig.add_subplot(111)
 		return fig, ax
 
@@ -54,11 +62,19 @@ if is_latex:
 		pl.savefig(filename+'.pgf')
 		pl.savefig(filename+'.png')
 else:
-	def newfig(width=2):
+
+	default_width = 2
+
+	def newfig(width=2, height_adj=0):
 		pl.clf()
-		fig = pl.figure(figsize=figsize(width))
+		fig = pl.figure(figsize=figsize(width, height_adj))
 		ax = fig.add_subplot(111)
 		return fig, ax
+
+	def newrawfig(width=2, height_adj=0):
+		pl.clf()
+		fig = pl.figure(figsize=figsize(width, height_adj))
+		return fig
 
 	def savefig(filename):
 		pl.savefig('{}.png'.format(filename))
