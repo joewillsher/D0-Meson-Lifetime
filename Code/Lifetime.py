@@ -465,14 +465,14 @@ def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 
 
 
-def background_fit(dm, bg_A, bg_p):
-	return bg_A * (dm-m_pi)**bg_p
+def background_fit(dm, bg_A, bg_p, bg_m):
+	return bg_A * (dm-bg_m)**bg_p
 	
 	
 signal_fit = double_gaussian
 # 2.07302440e+01   2.98646045e-01   1.77728941e+03   1.45465825e+02		7.79647227e+00  -6.76180865e-01   4.09293926e+00]
-def combined_fit(dm, bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f):
-	return signal_fit(dm, sig_A, sig_centre, sig_w1, sig_w2, f) + background_fit(dm, bg_A, bg_p)
+def combined_fit(dm, bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f):
+	return signal_fit(dm, sig_A, sig_centre, sig_w1, sig_w2, f) + background_fit(dm, bg_A, bg_p, bg_m)
 
 
 
@@ -486,23 +486,24 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 165]
 	hist, bin_edges = np.histogram(diffs, bins=100)
 	N = np.sum(diffs)
-	masses = np.array([np.mean([d0, d1]) for d0, d1 in zip(bin_edges[:-1], bin_edges[1:])])
+	sy, _ = np.histogram(diffs, bins=bin_edges, weights=diffs)
+	masses = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 
-	initial = [max(hist)*0.04, 0.25, max(hist), 145.5, .1, 1., .9]
+	initial = [max(hist)*0.04, 0.25, m_pi, max(hist)*1.2, 145.5, .1, 1., .9]
 
 	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
 	x_errors = np.repeat(bin_width/2, len(errors))
 	
 	if fit:	
-		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=(0, [np.inf, np.inf, np.inf, np.inf, 1, 5, np.inf]))
+		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=([0, .25, 139, 0, 0, 0, 0, 0], [np.inf, .33, 140, np.inf, np.inf, 1, 5, np.inf]))
 		print('po-fit', po)
 	
 	fig = newrawfig(width=2)
 	margin = .1
 	out_margin = .02
-	subpl_height = .3
+	subpl_height = .25
 	width, height = 1, 1
 	# x_l, x_b, w, h
 	ax = fig.add_axes([margin, subpl_height, width-margin-out_margin, height-subpl_height-margin])
@@ -513,9 +514,9 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 	if fit:
 		masses_continuous = np.arange(m_pi, masses[-1], .02)
 		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
-# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[6], po[4], po[3]), '-k')
-# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[6]), po[5], po[3]), '-k')
-		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:2]), facecolor='blue', edgecolor="None", alpha=0.35)
+# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[7], po[5], po[4]), '-k')
+# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[7]), po[6], po[4]), '-k')
+		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:3]), facecolor='blue', edgecolor="None", alpha=0.35)
 		
 		pull_ax = fig.add_axes([margin, margin, width-margin-out_margin, subpl_height-margin])
 		pulls = (hist-combined_fit(masses, *po))/errors
@@ -529,6 +530,8 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 		
 		for tick in pull_ax.yaxis.get_major_ticks():
 			tick.label.set_fontsize(6)
+
+		fig.set_tight_layout(True)
 
 	else:
 		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
@@ -581,18 +584,28 @@ def cut(accepted, rejected, cond):
 
 
 def get_sig_range(po, width):
-	bg_A, bg_p, sig_A, sig_centre, sig_w1, sig_w2, f = po
+	bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f = po
 	sig_w = max(sig_w1, sig_w2)
 	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
 	return range_low, range_up
 
 
+def calculate_weight(po, filtered, width):
+	sig_centre, sig_w = po[3], po[4]
+	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
+	na = spi.quad(combined_fit, range_low, range_up, args=(po[0], po[1], po[2], po[3], po[4]))[0]
+	nb = spi.quad(background_fit, m_pi, 165, args=(po[0], po[1]))[0]
+	ntot = spi.quad(combined_fit, m_pi, 165, args=(po[0], po[1], po[2], po[3], po[4]))[0]
+	wb = (ntot-na)/nb - 1
+	return wb
+
+
 def estimate_background(po, filtered, width):
 	range_low, range_up = get_sig_range(po, width)
-	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1]))[0]
-	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[2], po[3], po[4], po[5], po[6]))[0]
+	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
+	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[3], po[4], po[5], po[6], po[7]))[0]
 
 	bg_fraction = bg_integral/(sig_integral + bg_integral)
 
 	print("BACKGROUND EST", bg_integral, len(filtered), str(bg_fraction*100) + "%")
-	return bg_integral, bg_fraction
+	return bg_integral, sig_integral, bg_fraction

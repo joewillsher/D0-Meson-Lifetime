@@ -20,7 +20,7 @@ width = 3.
 filtered, background, po, bin_width = cutEventSet_massDiff(filtered, width)
 rejected = background
 print(len(data))
-bg_integral, bg_fraction = estimate_background(po, filtered, width)
+bg_integral, sig_integral, bg_fraction = estimate_background(po, filtered, width)
 
 
 
@@ -110,7 +110,7 @@ filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
 print('cut-done')
 
 after_po, after_bin_width = massDiff_plot(filtered, 'after', range=get_sig_range(po, width))
-bg_integral, bg_fraction = estimate_background(after_po, filtered, 3.)
+bg_integral, sig_integral, bg_fraction = estimate_background(after_po, filtered, 3.)
 
 
 # remove width
