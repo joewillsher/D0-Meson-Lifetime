@@ -1,11 +1,14 @@
 from Lifetime import *
 
-# newfig()
-# t = np.linspace(0., 3., 1000)
-# print(convoluted_exponential(t, .4, .1, 0))
-# pl.semilogy(t, convoluted_exponential(t, 6.05448532,  0.48522807,  0.19727462, -0.10720751), '-r')
-# savefig('convoluted')
-# pl.close()
+def cut(accepted, rejected, cond):
+	acc, rej = [], list(rejected)
+	for a in accepted:
+		if cond(a):
+			acc.append(a)
+		else:
+			rej.append(a)
+
+	return np.array(acc), np.array(rej)
 
 #get data
 data = readFile('np.txt' if '--full-set' in sys.argv else 'np-short.txt')
@@ -14,13 +17,13 @@ print(d)
 mass, time = d.reconstructedD0Mass, d.decayTime
 print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
 
-filtered = data
 # cut on mass diff
 width = 3.
-filtered, background, po, bin_width = cutEventSet_massDiff(filtered, width)
-rejected = background
+signal_region, background_sidebands, po_fullset, bin_width = cutEventSet_massDiff(data, width)
+filtered = data
+rejected = []
 print(len(data))
-bg_integral, sig_integral, bg_fraction = estimate_background(po, filtered, width)
+bg_integral, sig_integral, bg_fraction = estimate_background(po_fullset, filtered, width)
 
 
 
@@ -93,11 +96,11 @@ if not '--no-plot' in sys.argv:
 
 
 print('cut')
-filtered, rejected = cut(filtered, rejected, lambda d: 4500 <= d.pD0_t) # 4500, 2500
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pDstar_t < 20000) # 2500, 1400
-filtered, rejected = cut(filtered, rejected, lambda d: 300 <= d.pPslow_t < 2500) # 300, 200
-filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pk_t) # 1000, 700
-filtered, rejected = cut(filtered, rejected, lambda d: 1000 <= d.pp_t) # 1000, 700
+filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t) # 4500, 2500
+filtered, rejected = cut(filtered, rejected, lambda d: 1400 <= d.pDstar_t < 20000) # 2500, 1400
+filtered, rejected = cut(filtered, rejected, lambda d: 200 <= d.pPslow_t < 2500) # 300, 200
+filtered, rejected = cut(filtered, rejected, lambda d: 700 <= d.pk_t) # 1000, 700
+filtered, rejected = cut(filtered, rejected, lambda d: 700 <= d.pp_t) # 1000, 700
 
 # filtered, rejected = cut(filtered, rejected, lambda d: -5 <= d.d0IP_log <= -2.5)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.kIP_log <= -0.1)
@@ -109,21 +112,19 @@ filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
 
 print('cut-done')
 
-after_po, after_bin_width = massDiff_plot(filtered, 'after', range=get_sig_range(po, width))
-bg_integral, sig_integral, bg_fraction = estimate_background(after_po, filtered, 3.)
+after_po, after_bin_width = massDiff_plot(filtered, ext_name='after', bg_ratio=.01)
 
 
 # remove width
 d0_c, dstar_c = 1865., 2010.
 width = 20.
-filtered = [event for event in filtered if (d0_c-width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c+width) and (dstar_c-width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c+width)]
-
+filtered = [event for event in filtered if (d0_c - width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c + width) and (dstar_c - width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c + width)]
 
 
 
 # massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)
-calculateLifetime(filtered, background, bg_fraction)
+calculateLifetime(filtered, background_sidebands, after_po, after_bin_width)
 
 # mass dist
 newfig()

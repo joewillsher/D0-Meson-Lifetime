@@ -2,7 +2,6 @@ from typing import Text
 import csv
 import numpy as np
 from collections import namedtuple
-from scipy.constants import c, hbar, physical_constants
 import pylab as pl
 import scipy.optimize as spo
 import lazy_property
@@ -10,13 +9,10 @@ from style import *
 import os
 import sys
 from scipy.stats import sem
-import scipy.integrate as spi
-import scipy.special as sse
+from Fitting import maximum_likelyhood_exp_fit
+from Background import *
 cwd = os.getcwd()
 
-# constants
-e = physical_constants['electron volt'][0]
-m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
 # position 3-vector, units mm
 Position = np.array
@@ -223,10 +219,6 @@ class CandidateEvent(object):
 
 	@lazy_property.LazyProperty
 	def dStarDecayTime(self):
-# 		x = (self.bDecay-self.dstarDecay)*1e-3
-# 		m_ds = self.reconstructedDstarMass
-# 		p_ds = self.pDstar_comps
-# 		return  magnitude(x) * m_ds / magnitude(p_ds)
 		x = (self.bDecay-self.dstarDecay)*1e-3
 		m_ds = self.reconstructedDstarMass
 		p_ds = self.pDstar_comps
@@ -312,25 +304,6 @@ def readFile(name: Text):
         return cands
 
 
-
-
-
-def convoluted_exponential(t, A, l, s, m):
-	if s < 0 and m == 0:
-		return 0
-	return A* l/2 * np.exp(2*m + l * s**2 - 2*t) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
-
-def gaussian(t, A, s, m):
-	return A * np.exp(-(t-m)**2/(2*s**2))
-
-def double_gaussian(t, A, m, s1, s2, f):
-	return A * (f * np.exp(-(t-m)**2/(2*s1**2)) + \
-		(1-f) * np.exp(-(t-m)**2/(2*s2**2)))
-
-
-
-
-
 def plotData(data):
 	# mass dist
 	masses = [mass_toMeV(d.reconstructedD0Mass) for d in data]
@@ -371,7 +344,10 @@ def plotData(data):
 	pl.close()
 
 
-def calculateLifetime(data, bg, bg_fraction):
+def calculateLifetime(data, bg, deltamass_po, deltamass_bin_width):
+	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, 3.)
+	wb = calculate_weight(deltamass_po, data, deltamass_bin_width)
+	
 	# decay time dist
 	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
 	bg_times = [d.decayTime*1e12 for d in bg if d.decayTime < 10e-12]
@@ -432,6 +408,8 @@ def calculateLifetime(data, bg, bg_fraction):
 	print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
 	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
+	maximum_likelyhood_exp_fit(times, wb)
+	
 	with open("data.txt", "w") as text_file:
 	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime*1e3, 0))
 	    text_file.write("lifetime_conv=%s\n" % np.round(po_conv[1]*1e3, 0))
@@ -465,14 +443,6 @@ def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 
 
 
-def background_fit(dm, bg_A, bg_p, bg_m):
-	return bg_A * (dm-bg_m)**bg_p
-	
-	
-signal_fit = double_gaussian
-# 2.07302440e+01   2.98646045e-01   1.77728941e+03   1.45465825e+02		7.79647227e+00  -6.76180865e-01   4.09293926e+00]
-def combined_fit(dm, bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f):
-	return signal_fit(dm, sig_A, sig_centre, sig_w1, sig_w2, f) + background_fit(dm, bg_A, bg_p, bg_m)
 
 
 
@@ -480,9 +450,7 @@ def combined_fit(dm, bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f):
 
 
 
-
-def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='massDiff_d0dstar'):
-
+def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165), methodName='massDiff_d0dstar'):
 	diffs = [getattr(d, methodName) for d in events if getattr(d, methodName) < 165]
 	hist, bin_edges = np.histogram(diffs, bins=100)
 	N = np.sum(diffs)
@@ -490,7 +458,7 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 	masses = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
 	bin_width = bin_edges[1] - bin_edges[0]
 
-	initial = [max(hist)*0.04, 0.25, m_pi, max(hist)*1.2, 145.5, .1, 1., .9]
+	initial = [max(hist)*0.2666666667*bg_ratio, 0.25, m_pi, max(hist)*1.2, 145.5, .1, 1., .9]
 
 	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
@@ -544,9 +512,6 @@ def massDiff_plot(events, ext_name='', fit=True, range=(139, 165), methodName='m
 
 
 
-
-
-
 # takes list of candidate events, cuts them by their mass diff
 def cutEventSet_massDiff(events, width):
 	po, bin_width = massDiff_plot(events)
@@ -557,55 +522,3 @@ def cutEventSet_massDiff(events, width):
 	accepted = [event for event in events if range_low <= event.massDiff_d0dstar <= range_up]
 	rejected = [event for event in events if not range_low <= event.massDiff_d0dstar <= range_up]
 	return accepted, rejected, po, bin_width
-
-
-
-
-
-def cut(accepted, rejected, cond):
-	acc, rej = [], list(rejected)
-	for a in accepted:
-		if cond(a):
-			acc.append(a)
-		else:
-			rej.append(a)
-
-	return np.array(acc), np.array(rej)
-
-
-
-
-# def error_hisogram(x, xbins, y):
-# 	n, _ = np.histogram(x, bins=xbins)
-# 	sy, _ = np.histogram(x, bins=xbins, weights=y)
-# 	sy2, _ = np.histogram(x, bins=xbins, weights=y*y)
-# 	mean = sy / n
-# 	return np.sqrt(sy2/n - mean*mean)/np.sqrt(n)
-
-
-def get_sig_range(po, width):
-	bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f = po
-	sig_w = max(sig_w1, sig_w2)
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
-	return range_low, range_up
-
-
-def calculate_weight(po, filtered, width):
-	sig_centre, sig_w = po[3], po[4]
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
-	na = spi.quad(combined_fit, range_low, range_up, args=(po[0], po[1], po[2], po[3], po[4]))[0]
-	nb = spi.quad(background_fit, m_pi, 165, args=(po[0], po[1]))[0]
-	ntot = spi.quad(combined_fit, m_pi, 165, args=(po[0], po[1], po[2], po[3], po[4]))[0]
-	wb = (ntot-na)/nb - 1
-	return wb
-
-
-def estimate_background(po, filtered, width):
-	range_low, range_up = get_sig_range(po, width)
-	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
-	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[3], po[4], po[5], po[6], po[7]))[0]
-
-	bg_fraction = bg_integral/(sig_integral + bg_integral)
-
-	print("BACKGROUND EST", bg_integral, len(filtered), str(bg_fraction*100) + "%")
-	return bg_integral, sig_integral, bg_fraction
