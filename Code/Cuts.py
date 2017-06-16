@@ -117,14 +117,14 @@ after_po, after_bin_width = massDiff_plot(filtered, ext_name='after', bg_ratio=.
 
 # remove width
 d0_c, dstar_c = 1865., 2010.
-width = 20.
-filtered = [event for event in filtered if (d0_c - width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c + width) and (dstar_c - width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c + width)]
+meson_mass_width = 20.
+filtered = [event for event in filtered if (d0_c - meson_mass_width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c + meson_mass_width) and (dstar_c - meson_mass_width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c + meson_mass_width)]
 
 
 
 # massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)
-calculateLifetime(filtered, background_sidebands, after_po, after_bin_width)
+calculateLifetime(filtered, background_sidebands, after_po, width)
 
 # mass dist
 newfig()

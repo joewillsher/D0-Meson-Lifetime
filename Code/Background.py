@@ -40,12 +40,12 @@ def get_sig_range(po, width):
 	return range_low, range_up
 
 
-def calculate_weight(po, filtered, width):
+def calculate_weight(po, filtered, range_low, range_up):
 	sig_centre, sig_w = po[3], po[4]
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
-	na = spi.quad(background_fit, m_pi, range_low, args=(po[0], po[1], po[2]))[0] + \
-		spi.quad(background_fit, range_up, 165, args=(po[0], po[1], po[2]))[0]
-	nb = spi.quad(background_fit, m_pi, 165, args=(po[0], po[1], po[2]))[0]
+	bg_kinematic_limit, max_dm = po[2], 165
+	nsig = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
+	nb = spi.quad(background_fit, bg_kinematic_limit, max_dm, args=(po[0], po[1], po[2]))[0]
+	na = nb-nsig
 	wb = - na/nb
 	print("Na", na)
 	print("Nb", nb)

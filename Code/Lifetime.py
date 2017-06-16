@@ -344,9 +344,8 @@ def plotData(data):
 	pl.close()
 
 
-def calculateLifetime(data, bg, deltamass_po, deltamass_bin_width):
+def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, 3.)
-	wb = calculate_weight(deltamass_po, data, deltamass_bin_width)
 	
 	# decay time dist
 	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
@@ -408,7 +407,7 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_bin_width):
 	print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
 	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
-	maximum_likelyhood_exp_fit(times, wb)
+	maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
 	
 	with open("data.txt", "w") as text_file:
 	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime*1e3, 0))
