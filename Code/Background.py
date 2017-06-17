@@ -9,9 +9,7 @@ e = physical_constants['electron volt'][0]
 m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
 def convoluted_exponential(t, A, l, s, m):
-	if s < 0 and m == 0:
-		return 0
-	return A* l/2 * np.exp(2*m + l * s**2 - 2*t) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
+	return l/2 * np.exp(l/2 * (2*m + l * s**2 - 2*t)) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
 
 def gaussian(t, A, s, m):
 	return A * np.exp(-(t-m)**2/(2*s**2))
@@ -43,9 +41,8 @@ def get_sig_range(po, width):
 def calculate_weight(po, filtered, range_low, range_up):
 	sig_centre, sig_w = po[3], po[4]
 	bg_kinematic_limit, max_dm = po[2], 165
-	nsig = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
-	nb = spi.quad(background_fit, bg_kinematic_limit, max_dm, args=(po[0], po[1], po[2]))[0]
-	na = nb-nsig
+	na = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
+	nb = spi.quad(background_fit, bg_kinematic_limit, max_dm, args=(po[0], po[1], po[2]))[0]-na
 	wb = - na/nb
 	print("Na", na)
 	print("Nb", nb)

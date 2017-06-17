@@ -407,12 +407,13 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
 	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
-	maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
+	tau_elimination = maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
 	
 	with open("data.txt", "w") as text_file:
 	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime*1e3, 0))
 	    text_file.write("lifetime_conv=%s\n" % np.round(po_conv[1]*1e3, 0))
 	    text_file.write("lifetime_exp=%s\n" % np.round(partial_lifetime*1e3, 0))
+	    text_file.write("lifetime_bgreduction=%s\n" % np.round(tau_elimination*1e3, 0))
 
 
 
@@ -499,7 +500,6 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 			tick.label.set_fontsize(6)
 
 		fig.set_tight_layout(True)
-
 	else:
 		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	
