@@ -8,6 +8,7 @@ import pylab as pl
 import scipy.optimize as spo
 import lazy_property
 from Background import *
+from style import *
 
 
 def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
@@ -19,7 +20,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	range_low, range_up = get_sig_range(after_po, deltamass_peak_width)
 	print(range_low, range_up)
 	
-	data = [event for event in full_set if 10e-12 >= event.decayTime]
+	data = [event for event in full_set if 0 <= event.decayTime <= 10e-12]
 
 	wb = calculate_weight(after_po, data, range_low, range_up)
 	
@@ -33,22 +34,23 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	
 	N = len(data)
 	
-	#Negative log likelihood minimisation:
 	range_tau = np.linspace(0.3, 0.7, 1000) #range of mean lifetime considered for minimisation
 
+	pdf_gaussian_width = .8
+
 	def pdf(ti, l):
-		return convoluted_exponential(ti, 1, l, 0.8, 0)
+		return convoluted_exponential(ti, 1, l, pdf_gaussian_width, 0)
 
 	def negative_log_likelihood(l, ts, mdiffs): #ts, mdiffs are the events' times and mass diffs, l is lifetime
 		aaa = [- (1 if range_low <= md <= range_up else wb) * np.log(pdf(x, 1/l)) for x, md in zip(ts, mass_diffs)]
-		print(sum(aaa)/N, 1/l)
-		return sum(aaa)/N
+		print(sum(aaa), 1/l)
+		return sum(aaa)
 
 	def D_Dtau(tau_x, ts, mdiffs): #first derivative wrt tau
-		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), dx=.0001)
+		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), dx=1e-5)
 
 	def D_2_Dtau(tau_x, ts, mdiffs):
-		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), n=2, dx=.0001)
+		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), n=2, dx=1e-5)
 
 	# takes tau: initial guess of derivative root
 	def Newton_Raphson_tau(tau0): #iterates and finds the root of the derivative (minimum of log likelihood)
@@ -56,7 +58,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 		while True:
 			tau_change = D_Dtau(tau_n, times, mass_diffs)/D_2_Dtau(tau_n, times, mass_diffs)
 			print('nr', tau_n-tau_change)
-			if np.abs(tau_change) <= 0.005:
+			if np.abs(tau_change) <= 1e-4:
 				return tau_n-tau_change
 			else:
 				tau_n -= tau_change
@@ -64,4 +66,29 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 
 	tau_f = Newton_Raphson_tau(0.4)
 	print('tau', tau_f, np.mean(times))
-	return tau_f
+	
+	newfig()
+	x = np.linspace(0.3, 0.7, 100)
+	pl.plot(x, negative_log_likelihood(x, times, mass_diffs))
+	savefig('L vs tau')
+	
+	
+	likelyhood = negative_log_likelihood(tau_f, times, mass_diffs)
+	
+	#statistical uncertainty calculations
+	def Neg_Log_1(tau): #Neg Log likelihood shifted by a threshold
+		return negative_log_likelihood(tau, times, mass_diffs) - likelyhood - 1 
+
+	def Newton_Raphson_uncertainty(x): #finds the root of Neg_Log_1
+		while np.abs(Neg_Log_1(x)) >= 0.005:
+			x_n = x - Neg_Log_1(x)/D_Dtau(x, times, mass_diffs)
+			x=x_n
+		return x
+	
+	x_1 = Newton_Raphson_uncertainty(tau_f - 0.02)
+	x_2 = Newton_Raphson_uncertainty(tau_f + 0.02)
+	S = np.abs(x_1 - x_2)/2
+	
+	print('lifetime ', tau_f, '+- ', S, ' ps')
+	return tau_f, S
+

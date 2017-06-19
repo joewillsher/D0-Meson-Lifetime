@@ -1,11 +1,13 @@
-from Cuts import *
+from Lifetime import *
 
 # print(times)
 
+filtered = np.load('fitting_FULLSET.npy')
+po = np.load('fitting_AFTERPO.npy')
+width = np.load('fitting_WIDTH.npy')[0]
 
-range_low, range_up = get_sig_range(po, .4)
 # cut harshly on delta mass to remove bg, then get d star time
-times = [d.dStarDecayTime*1e12 for event in filtered if range_low <= event.massDiff_d0dstar <= range_up]
+times = [event.dStarDecayTime*1e12 for event in filtered]
 
 print(np.mean(times), np.std(times))
 

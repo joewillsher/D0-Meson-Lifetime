@@ -9,7 +9,7 @@ e = physical_constants['electron volt'][0]
 m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
 def convoluted_exponential(t, A, l, s, m):
-	return l/2 * np.exp(l/2 * (2*m + l * s**2 - 2*t)) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
+	return A* l/2 * np.exp(l/2 * (2*m + l * s**2 - 2*t)) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
 
 def gaussian(t, A, s, m):
 	return A * np.exp(-(t-m)**2/(2*s**2))
