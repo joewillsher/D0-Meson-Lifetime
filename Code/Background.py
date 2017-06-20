@@ -8,7 +8,8 @@ from scipy.constants import c, hbar, physical_constants
 e = physical_constants['electron volt'][0]
 m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
-def convoluted_exponential(t, A, l, s, m):
+def convoluted_exponential(t, A, tau, s, m):
+	l = 1/tau
 	return A* l/2 * np.exp(l/2 * (2*m + l * s**2 - 2*t)) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
 
 def gaussian(t, A, s, m):

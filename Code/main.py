@@ -15,11 +15,51 @@ from Fitting import *
 # 
 # maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width)
 
+
+wb = -0.24547923683846168
+bg_fraction = .14348538893649977
+range_low, range_up = 142.414041989, 149.059198523
+
+	
+filtered = np.load('fitting_FULLSET.npy')
+times = [d.decayTime*1e12 for d in filtered]
+weights = [(1 if range_low <= d.massDiff_d0dstar <= range_up else wb) for d in filtered]
+
+time_range, bin_num = (-4, 10), 120
+
+# decay time curve
+hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)	
+hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)	
+hist_bg = np.histogram(times, bins=bin_num, range=time_range, normed=True)[0] * np.sum(hist) * bg_fraction
+
+sy = np.histogram(times, bins=bin_edges, weights=times)[0]
+time = bin_edges[1:]
+errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
+
+newfig()
+pl.semilogy(time, hist, '.g')
+pl.semilogy(time, hist_bg, '.k')
+pl.semilogy(time, hist_raw, '.r')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.semilogy(time, convoluted_exponential(time, 1e4, 1/.41, .8, 0))
+pl.xlabel(r'Decay time [ps]')
+savefig('decay-fitted')
+pl.close()
+
+newfig()
+pl.plot(time, hist, '.g')
+pl.plot(time, hist_bg, '.k')
+pl.plot(time, hist_raw, '.r')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.plot(time, convoluted_exponential(time, 6000, .41, 1., 0))
+pl.xlabel(r'Decay time [ps]')
+savefig('decay')
+pl.close()
+
+
+"""
 data = [d for d in np.load('fitting_FULLSET.npy') if 0 <= d.decayTime < 10e-12]
 
-wb = -0.2939171976029101
-bg_fraction = 0.022
-range_low, range_up = 142.414041989, 149.059198523
 
 times = [d.decayTime*1e12 for d in data]
 bg_times = [np.abs(d.decayTime)*1e12 for d in data if not range_low <= d.massDiff_d0dstar <= range_up]
@@ -53,3 +93,4 @@ pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
 pl.xlabel(r'Decay time [ps]')
 savefig('decay')	
 pl.close()
+"""

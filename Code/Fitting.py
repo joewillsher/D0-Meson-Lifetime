@@ -34,16 +34,14 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	
 	N = len(data)
 	
-	range_tau = np.linspace(0.3, 0.7, 1000) #range of mean lifetime considered for minimisation
-
-	pdf_gaussian_width = 0.8
-
+	pdf_gaussian_width = .88945173193
+	
 	def pdf(ti, l):
 		return convoluted_exponential(ti, 1, l, pdf_gaussian_width, 0)
 
 	def negative_log_likelihood(l, ts, mdiffs): #ts, mdiffs are the events' times and mass diffs, l is lifetime
-		aaa = [- (1 if range_low <= md <= range_up else wb) * np.log(pdf(x, 1/l)) for x, md in zip(ts, mass_diffs)]
-		print(sum(aaa), 1/l)
+		aaa = [- (1 if range_low <= md <= range_up else wb) * np.log(pdf(x, l)) for x, md in zip(ts, mass_diffs)]
+		print(sum(aaa), l)
 		return sum(aaa)
 
 	def D_Dtau(tau_x, ts, mdiffs): #first derivative wrt tau
@@ -68,7 +66,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	print('tau', tau_f, np.mean(times))
 	
 	newfig()
-	x = np.linspace(0.3, 0.7, 100)
+	x = np.linspace(0.2, 0.6, 100)
 	pl.plot(x, negative_log_likelihood(x, times, mass_diffs))
 	savefig('L vs tau')
 	
