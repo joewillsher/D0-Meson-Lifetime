@@ -13,7 +13,7 @@ from style import *
 
 def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 
-# 	np.save('fitting_FULLSET.npy', full_set)
+	np.save('fitting_FULLSET.npy', full_set)
 # 	np.save('fitting_AFTERPO.npy', after_po)
 # 	np.save('fitting_WIDTH.npy', [deltamass_peak_width])
 	
@@ -23,7 +23,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	data = [event for event in full_set if 0 <= event.decayTime <= 10e-12]
 
 	wb = calculate_weight(after_po, data, range_low, range_up)
-	
+		
 	times = [d.decayTime*1e12 for d in data] #decay times considered from data
 	mass_diffs = [event.massDiff_d0dstar for event in data] #decay times considered from data
 	
@@ -36,7 +36,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	
 	range_tau = np.linspace(0.3, 0.7, 1000) #range of mean lifetime considered for minimisation
 
-	pdf_gaussian_width = .8
+	pdf_gaussian_width = 0.8
 
 	def pdf(ti, l):
 		return convoluted_exponential(ti, 1, l, pdf_gaussian_width, 0)
@@ -77,7 +77,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	
 	#statistical uncertainty calculations
 	def Neg_Log_1(tau): #Neg Log likelihood shifted by a threshold
-		return negative_log_likelihood(tau, times, mass_diffs) - likelyhood - 1 
+		return negative_log_likelihood(tau, times, mass_diffs) - likelyhood - .5
 
 	def Newton_Raphson_uncertainty(x): #finds the root of Neg_Log_1
 		while np.abs(Neg_Log_1(x)) >= 0.005:
@@ -90,5 +90,5 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	S = np.abs(x_1 - x_2)/2
 	
 	print('lifetime ', tau_f, '+- ', S, ' ps')
-	return tau_f, S
+	return tau_f, S, wb
 
