@@ -8,10 +8,8 @@ from scipy.constants import c, hbar, physical_constants
 e = physical_constants['electron volt'][0]
 m_pi, m_k = 139.57018, 493.677 # TODO: uncert 0.00035, 0.013 respectively
 
-def convoluted_exponential(t, A, l, s, m):
-	if s < 0 and m == 0:
-		return 0
-	return A* l/2 * np.exp(2*m + l * s**2 - 2*t) * sse.erfc((m + l * s**2 - t)/(2**0.5 * s))
+def convoluted_exponential(t, A, tau, s):
+	return A * 1/(2*tau) * np.exp(1/tau * (s**2/(2*tau) - t)) * (1- sse.erf((s**2 / tau - t)/(2**0.5 * s)))
 
 def gaussian(t, A, s, m):
 	return A * np.exp(-(t-m)**2/(2*s**2))
@@ -21,6 +19,9 @@ def double_gaussian(t, A, m, s1, s2, f):
 		(1-f) * np.exp(-(t-m)**2/(2*s2**2)))
 
 
+def normalisation_const(pdf, range, args):
+	i = spi.quad(pdf, range[0], range[1], args=args)[0]
+	return 1/i
 
 def background_fit(dm, bg_A, bg_p, bg_m):
 	return bg_A * (dm-bg_m)**bg_p
@@ -40,12 +41,11 @@ def get_sig_range(po, width):
 	return range_low, range_up
 
 
-def calculate_weight(po, filtered, width):
+def calculate_weight(po, filtered, range_low, range_up):
 	sig_centre, sig_w = po[3], po[4]
-	range_low, range_up = sig_centre - sig_w*width, sig_centre + sig_w*width
-	na = spi.quad(background_fit, m_pi, range_low, args=(po[0], po[1], po[2]))[0] + \
-		spi.quad(background_fit, range_up, 165, args=(po[0], po[1], po[2]))[0]
-	nb = spi.quad(background_fit, m_pi, 165, args=(po[0], po[1], po[2]))[0]
+	bg_kinematic_limit, max_dm = po[2], 165
+	na = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
+	nb = spi.quad(background_fit, bg_kinematic_limit, max_dm, args=(po[0], po[1], po[2]))[0]-na
 	wb = - na/nb
 	print("Na", na)
 	print("Nb", nb)

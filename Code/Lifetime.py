@@ -212,14 +212,14 @@ class CandidateEvent(object):
 
 	@lazy_property.LazyProperty
 	def decayTime(self):
-		x = self.labFrameTravel
+		x = (self.d0Decay-self.bDecay)*1e-3
 		m_d0 = self.reconstructedD0Mass
-		p_d0 = self.pD0
-		return x * m_d0 / p_d0
+		p_d0 = self.pD0_comps
+		return np.sign(dot(x, p_d0)) * magnitude(x) * m_d0 / magnitude(p_d0)
 
 	@lazy_property.LazyProperty
 	def dStarDecayTime(self):
-		x = (self.bDecay-self.dstarDecay)*1e-3
+		x = (self.dstarDecay-self.bDecay)*1e-3
 		m_ds = self.reconstructedDstarMass
 		p_ds = self.pDstar_comps
 		return np.sign(dot(x, p_ds)) * magnitude(x) * m_ds / magnitude(p_ds)
@@ -263,7 +263,7 @@ class CandidateEvent(object):
 
 	@lazy_property.LazyProperty
 	def costheta(self):
-		p, r = self.kp+self.pd+self.ps, self.dstarDecay-self.interaction
+		p, r = self.kp+self.pd, self.d0Decay-self.dstarDecay
 		return dot(p/magnitude(p), r/magnitude(r))
 		
 		
@@ -344,76 +344,72 @@ def plotData(data):
 	pl.close()
 
 
-def calculateLifetime(data, bg, deltamass_po, deltamass_bin_width):
-	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, 3.)
-	wb = calculate_weight(deltamass_po, data, deltamass_bin_width)
+def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
+	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, deltamass_peak_width)
 	
-	# decay time dist
-	times = [d.decayTime*1e12 for d in data if d.decayTime < 10e-12]
-	bg_times = [d.decayTime*1e12 for d in bg if d.decayTime < 10e-12]
+	tau_elimination, tau_elimination_err, wb, pdf_gaussian_width, A = \
+		maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
+	
+	filtered = [d for d in data if -4e-12 <= d.decayTime < 10e-12]
+
+	range_low, range_up = get_sig_range(deltamass_po, deltamass_peak_width)
+
+	times = [d.decayTime*1e12 for d in filtered]
 	np.save('TIMES', times)
-	np.save('BG_TIMES', bg_times)
-	
-	newfig()
-	pl.hist(times, bins=100, range=(0, 50))
-	savefig('time-hist')
-	pl.close()
+	weights = [(1 if range_low <= d.massDiff_d0dstar <= range_up else wb) for d in filtered]
+	bg_weights = [(0 if range_low <= d.massDiff_d0dstar <= range_up else 1) for d in filtered]
+
+	time_range, bin_num = (-.4, 10), 50 if is_latex else 300
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=120, range=(0., 10.))
-	bg_hist, bg_bin_edges = np.histogram(bg_times, bins=120, range=(0., 10.))
+	hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)	
+	hist_bg, _ = np.histogram(times, bins=bin_num, range=time_range, weights=bg_weights)
+	hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)	
 
-	num_events = np.sum(hist)
-	num_bg = np.sum(bg_hist)
-	# get the mean value in each bin
-	sy, _ = np.histogram(times, bins=bin_edges, weights=times)
-	time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
+	sy = np.histogram(times, bins=bin_edges, weights=times)[0]
+	time = bin_edges[1:]
+	errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
 
-	bg_hist_normalised = bg_hist/num_bg * bg_fraction * num_events
-	subtracted_hist = hist - bg_hist_normalised
-	errors = [x*.9999999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-.0000000001]
+# 	po, po_cov = spo.curve_fit(lambda t, a, tau: a * np.exp(-t/tau), time, hist, [3000, .4], sigma=errors, absolute_sigma=True)
+# 	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, hist, [3000, .41, .5], errors, absolute_sigma=True)
+# 	print(po, po_conv)
 
-	# decay time fitting
-	po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [num_events, 1.5])
-
-	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, subtracted_hist, [num_events/2, .41, .05, 0.], errors, absolute_sigma=True)
-
-	newfig()
+	time_cont = np.linspace(time_range[0], time_range[1], 1000)
+	
+	fig, ax = newfig()
 	pl.semilogy(time, hist, '.g')
-	pl.semilogy(time, subtracted_hist, '.r')
-	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
-# 	if not is_latex:
-# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
-# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-	pl.semilogy(time, convoluted_exponential(time, *po_conv), '-b')
+	pl.semilogy(time, hist_bg, '.k')
+	pl.semilogy(time, hist_raw, '.r')
+	pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+	pl.semilogy(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-g')
 	pl.xlabel(r'Decay time [ps]')
+# 	ax.set_ylim(1e-2, 1e4)
+	ax.set_xlim(time_range)
 	savefig('decay-fitted')
 	pl.close()
 
-	newfig()
-	pl.plot(time, subtracted_hist, ',r')
-	pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r')
-	pl.plot(time, hist, '.r')
-# 	if not is_latex:
-# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
-# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-	pl.plot(time, convoluted_exponential(time, *po_conv), '-b')
+	fig, ax = newfig()
+	pl.plot(time, hist, '.g')
+	pl.plot(time, hist_bg, '.k')
+	pl.plot(time, hist_raw, '.r')
+	pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+	pl.plot(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-g')
+	ax.set_xlim(time_range[0], 4)
 	pl.xlabel(r'Decay time [ps]')
 	savefig('decay')
 	pl.close()
-
-
-	partial_lifetime = po[1]
-	mean_lifetime = np.mean(times)
-	print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
-	print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
 	
-	maximum_likelyhood_exp_fit(times, wb)
+# 	newfig()
+# 	pl.plot(time, hist, ',r')
+# 	pl.plot(time, convoluted_exponential(time, *[4000, tau_elimination, .9297596, -2]), '-b')
+# 	pl.xlabel(r'Decay time [ps]')
+# 	savefig('decay-BACKGROUNDSIUBTR')
+# 	pl.close()
+
 	
 	with open("data.txt", "w") as text_file:
-	    text_file.write("lifetime=%s\n" % np.round(mean_lifetime*1e3, 0))
-	    text_file.write("lifetime_conv=%s\n" % np.round(po_conv[1]*1e3, 0))
-	    text_file.write("lifetime_exp=%s\n" % np.round(partial_lifetime*1e3, 0))
+	    text_file.write("lifetime_bgreduction=%s\n" % np.round(tau_elimination*1e3, 1))
+	    text_file.write("error_bgreduction=%s\n" % np.round(tau_elimination_err*1e3, 1))
 
 
 
@@ -428,10 +424,7 @@ def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 	
 	acc = pl.hist(diffs_a, 100, facecolor='g', histtype='step', range=range, label='accepted')
 	rej = pl.hist(diffs_r, 100, facecolor='r', histtype='step', range=range, label='rejected')
-	
-	hist_r, bin_edges_r = np.histogram(diffs_r, bins=100, range=range, normed=True)
-	hist_a, bin_edges_a = np.histogram(diffs_a, bins=100, range=range, normed=True)
-	
+		
 	if label:
 		pl.xlabel(label)
 	pl.ylabel(r'Relative frequency')
@@ -500,7 +493,6 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 			tick.label.set_fontsize(6)
 
 		fig.set_tight_layout(True)
-
 	else:
 		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
 	

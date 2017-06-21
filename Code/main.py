@@ -1,71 +1,96 @@
-from style import *
-# import Cuts
-# import CutModel
-# import Fitting
+from Fitting import *
+
+# ti = np.linspace(-4., 10., 1000)
+# 
+# newfig()
+# pl.plot(ti, convoluted_exponential(ti, 1, .41, 0.8, 0), '-b')
+# pl.xlabel(r'Decay time [ps]')
+# savefig('d-BACKGROUNDSIUBTR')
+# pl.close()
 
 
-from Lifetime import *
+# full_set = np.load('fitting_FULLSET.npy')
+# after_po = np.load('fitting_AFTERPO.npy')
+# deltamass_peak_width = np.load('fitting_WIDTH.npy')[0]
+# 
+# maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width)
 
-bg_fraction = 0.003
 
-times = np.array([t for t in np.load('TIMES.npy')])
-bg_times = np.array([t for t in np.load('BG_TIMES.npy')])
+wb = -0.24547923683846168
+bg_fraction = .14348538893649977
+range_low, range_up = 142.414041989, 149.059198523
 
-newfig()
-pl.hist(times, bins=100, range=(0, 50))
-savefig('time-hist')
-pl.close()
+	
+filtered = np.load('fitting_FULLSET.npy')
+times = [d.decayTime*1e12 for d in filtered]
+weights = [(1 if range_low <= d.massDiff_d0dstar <= range_up else wb) for d in filtered]
+
+time_range, bin_num = (-4, 10), 120
 
 # decay time curve
-hist, bin_edges = np.histogram(times, bins=120, range=(0., 10.))
-bg_hist, bg_bin_edges = np.histogram(bg_times, bins=120, range=(0., 10.))
+hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)	
+hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)	
+hist_bg = np.histogram(times, bins=bin_num, range=time_range, normed=True)[0] * np.sum(hist) * bg_fraction
 
-num_events = np.sum(hist)
-num_bg = np.sum(bg_hist)
-print(num_events, ' events')
-# get the mean value in each bin
-sy, _ = np.histogram(times, bins=bin_edges, weights=times)
-time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
-print(time)
-
-
-bg_hist_normalised = bg_hist/num_bg * bg_fraction * num_events
-subtracted_hist = hist - bg_hist_normalised
-print(subtracted_hist, np.sum(subtracted_hist))
-print(subtracted_hist, np.sum(subtracted_hist))
-errors = [x*.9999999999 if x <= 1  else np.sqrt(x) for x in subtracted_hist-.0000000001]
-
-# decay time fitting
-po, po_cov = spo.curve_fit(lambda t, A, tau: A * np.exp(-t/tau), time, subtracted_hist, [1400, 1.5])
-
-po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, subtracted_hist, [num_events/2, .41, .61, 0.], errors, absolute_sigma=True)
+sy = np.histogram(times, bins=bin_edges, weights=times)[0]
+time = bin_edges[1:]
+errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
 
 newfig()
 pl.semilogy(time, hist, '.g')
-pl.semilogy(time, subtracted_hist, '.r')
-pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
-# 	if not is_latex:
-# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
-# 		pl.semilogy(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-pl.semilogy(time, convoluted_exponential(time, *po_conv), '-b')
+pl.semilogy(time, hist_bg, '.k')
+pl.semilogy(time, hist_raw, '.r')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.semilogy(time, convoluted_exponential(time, 1e4, .41, .8, 0))
 pl.xlabel(r'Decay time [ps]')
 savefig('decay-fitted')
 pl.close()
 
 newfig()
-pl.plot(time, hist, '-g')
-pl.plot(time, subtracted_hist, '-r')
-pl.errorbar(time, subtracted_hist, yerr=errors, fmt=',r', capsize=0)
-# 	if not is_latex:
-# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/po[1]))(time), '-g')
-# 		pl.plot(time, np.vectorize(lambda t: po[0] * np.exp(-t/np.mean(times)))(time), '-g')
-pl.plot(time, convoluted_exponential(time, *po_conv), '-b')
+pl.plot(time, hist, '.g')
+pl.plot(time, hist_bg, '.k')
+pl.plot(time, hist_raw, '.r')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.plot(time, convoluted_exponential(time, 1e4, .41, .8, 0))
 pl.xlabel(r'Decay time [ps]')
 savefig('decay')
 pl.close()
 
 
-partial_lifetime = po[1]
-mean_lifetime = np.mean(times)
-print('convpo=', po_conv, '+-', np.sqrt(po_cov_conv[1][1]))
-print('partial lifetime\t' + str(partial_lifetime) + ' ps', 'OR MEAN PL =', str(mean_lifetime)+'ps', 'OR CONV=', str(po_conv[1])+'ps')
+"""
+data = [d for d in np.load('fitting_FULLSET.npy') if 0 <= d.decayTime < 10e-12]
+
+
+times = [d.decayTime*1e12 for d in data]
+bg_times = [np.abs(d.decayTime)*1e12 for d in data if not range_low <= d.massDiff_d0dstar <= range_up]
+weights = [(1 if range_low <= d.massDiff_d0dstar <= range_up else wb) for d in data]
+
+time_range, bin_num = (0, 10), 120
+
+# decay time curve
+hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)
+hist_unw, _ = np.histogram(times, bins=bin_num, range=time_range)
+hist_bg = np.histogram(bg_times, bins=bin_num, range=time_range, normed=True)[0] * np.sum(hist) * bg_fraction
+
+sy = np.histogram(times, bins=bin_edges, weights=times)[0]
+time = bin_edges[1:]
+# time = np.array([e if n == 0 else t/n for t, n, e in zip(sy, hist, bin_edges[1:])])
+errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
+
+
+newfig()
+pl.semilogy(time, hist, '.g')
+pl.semilogy(time, hist_bg, '.k')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.xlabel(r'Decay time [ps]')
+savefig('decay-fitted')
+pl.close()
+
+newfig()
+pl.plot(time, hist, ',g')
+pl.plot(time, hist_unw, '.b')
+pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
+pl.xlabel(r'Decay time [ps]')
+savefig('decay')	
+pl.close()
+"""
