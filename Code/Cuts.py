@@ -96,8 +96,8 @@ if not '--no-plot' in sys.argv:
 
 
 print('cut')
-filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t) # 4500, 2500
-filtered, rejected = cut(filtered, rejected, lambda d: 1400 <= d.pDstar_t < 20000) # 2500, 1400
+# filtered, rejected = cut(filtered, rejected, lambda d: 2500 <= d.pD0_t) # 4500, 2500
+# filtered, rejected = cut(filtered, rejected, lambda d: 1400 <= d.pDstar_t < 20000) # 2500, 1400
 # filtered, rejected = cut(filtered, rejected, lambda d: 200 <= d.pPslow_t < 2500) # 300, 200
 # filtered, rejected = cut(filtered, rejected, lambda d: 700 <= d.pk_t) # 1000, 700
 # filtered, rejected = cut(filtered, rejected, lambda d: 700 <= d.pp_t) # 1000, 700
@@ -107,8 +107,8 @@ filtered, rejected = cut(filtered, rejected, lambda d: 1400 <= d.pDstar_t < 2000
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.pIP_log <= -0.1)
 # filtered, rejected = cut(filtered, rejected, lambda d: -4 <= d.psIP_log <= -1.1)
 
-filtered, rejected = cut(filtered, rejected, lambda d:  20 <= d.s_z <= 120)
-filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta)
+# filtered, rejected = cut(filtered, rejected, lambda d:  20 <= d.s_z <= 120)
+# filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta or d.costheta <= -.9995)
 
 print('cut-done')
 

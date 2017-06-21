@@ -20,29 +20,25 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	range_low, range_up = get_sig_range(after_po, deltamass_peak_width)
 	print(range_low, range_up)
 	
-	data = [event for event in full_set if 0 <= event.decayTime <= 10e-12]
+	fit_range = (0, 10)
+	pdf_gaussian_width = 1./10.
+	
+	data = [event for event in full_set if fit_range[0] <= event.decayTime*1e-12 <= fit_range[1]]
 
 	wb = calculate_weight(after_po, data, range_low, range_up)
 		
 	times = [d.decayTime*1e12 for d in data] #decay times considered from data
 	mass_diffs = [event.massDiff_d0dstar for event in data] #decay times considered from data
 	
-	signal_region = [event for event in data if range_low <= event.massDiff_d0dstar <= range_up] #events in the signal region
-	times_sig = [d.decayTime*1e12 for d in signal_region] #decay times from events in the signal region
-	background_region = [event for event in data if event not in signal_region] #events in the background sideband
-	times_background = [d.decayTime*1e12 for d in background_region] #decay times from events in the sideband region
 	
-	N = len(data)
-	
-	pdf_gaussian_width = .88945173193
-	
-	def pdf(ti, l):
-		return convoluted_exponential(ti, 1, l, pdf_gaussian_width, 0)
+	def pdf(ti, tau, A):
+		return convoluted_exponential(ti, A, tau, pdf_gaussian_width)
 
-	def negative_log_likelihood(l, ts, mdiffs): #ts, mdiffs are the events' times and mass diffs, l is lifetime
-		aaa = [- (1 if range_low <= md <= range_up else wb) * np.log(pdf(x, l)) for x, md in zip(ts, mass_diffs)]
-		print(sum(aaa), l)
-		return sum(aaa)
+	def negative_log_likelihood(tau, ts, mdiffs): #ts, mdiffs are the events' times and mass diffs, l is lifetime
+		normalisation = normalisation_const(convoluted_exponential, fit_range, (1, tau, pdf_gaussian_width))
+		aaa = [(1 if range_low <= md <= range_up else wb) * np.log(pdf(x, tau, normalisation)) for x, md in zip(ts, mass_diffs)]
+		print(-sum(aaa), tau)
+		return -sum(aaa)
 
 	def D_Dtau(tau_x, ts, mdiffs): #first derivative wrt tau
 		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), dx=1e-5)
@@ -66,8 +62,9 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	print('tau', tau_f, np.mean(times))
 	
 	newfig()
-	x = np.linspace(0.2, 0.6, 100)
-	pl.plot(x, negative_log_likelihood(x, times, mass_diffs))
+	x = np.linspace(.25, .65, 100)
+	A = normalisation_const(convoluted_exponential, fit_range, (1, tau_f, pdf_gaussian_width))
+	pl.plot(x, [negative_log_likelihood(x, times, mass_diffs) for x in x])
 	savefig('L vs tau')
 	
 	
@@ -83,10 +80,10 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 			x=x_n
 		return x
 	
-	x_1 = Newton_Raphson_uncertainty(tau_f - 0.02)
-	x_2 = Newton_Raphson_uncertainty(tau_f + 0.02)
+	x_1 = Newton_Raphson_uncertainty(tau_f - 0.01)
+	x_2 = Newton_Raphson_uncertainty(tau_f + 0.01)
 	S = np.abs(x_1 - x_2)/2
 	
 	print('lifetime ', tau_f, '+- ', S, ' ps')
-	return tau_f, S, wb
+	return tau_f, S, wb, pdf_gaussian_width, A
 
