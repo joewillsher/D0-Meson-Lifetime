@@ -67,7 +67,6 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	pl.plot(x, [negative_log_likelihood(x, times, mass_diffs) for x in x])
 	savefig('L vs tau')
 	
-	
 	likelyhood = negative_log_likelihood(tau_f, times, mass_diffs)
 	
 	#statistical uncertainty calculations

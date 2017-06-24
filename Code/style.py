@@ -25,8 +25,8 @@ if is_latex:
 	"font.family": "serif",
 	"font.serif": [],                   # blank entries should cause plots to inherit fonts from the document
 	"lines.markersize": 2,
-	"lines.linewidth" : .6,
-	"boxplot.boxprops.linewidth": .6,
+	"lines.linewidth" : .4,
+	"boxplot.boxprops.linewidth": .4,
 	"font.sans-serif": [],
 	"font.monospace": [],
 	"axes.labelsize": 8,               # LaTeX default is 10pt font.

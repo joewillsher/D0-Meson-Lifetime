@@ -350,7 +350,9 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	tau_elimination, tau_elimination_err, wb, pdf_gaussian_width, A = \
 		maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
 	
-	filtered = [d for d in data if -4e-12 <= d.decayTime < 10e-12]
+	time_range, bin_num = (-.4, 10), 75 if is_latex else 100
+
+	filtered = [d for d in data if time_range[0] <= d.decayTime*1e12 < time_range[1]]
 
 	range_low, range_up = get_sig_range(deltamass_po, deltamass_peak_width)
 
@@ -359,7 +361,6 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	weights = [(1 if range_low <= d.massDiff_d0dstar <= range_up else wb) for d in filtered]
 	bg_weights = [(0 if range_low <= d.massDiff_d0dstar <= range_up else 1) for d in filtered]
 
-	time_range, bin_num = (-.4, 10), 50 if is_latex else 300
 
 	# decay time curve
 	hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)	
@@ -367,45 +368,37 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)	
 
 	sy = np.histogram(times, bins=bin_edges, weights=times)[0]
-	time = bin_edges[1:]
+	time = np.array([(e1+e2)/2 if n == 0 else t/n for t, n, e1, e2 in zip(sy, hist_raw, bin_edges[1:], bin_edges[:-1])])
 	errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
-
-# 	po, po_cov = spo.curve_fit(lambda t, a, tau: a * np.exp(-t/tau), time, hist, [3000, .4], sigma=errors, absolute_sigma=True)
-# 	po_conv, po_cov_conv = spo.curve_fit(convoluted_exponential, time, hist, [3000, .41, .5], errors, absolute_sigma=True)
-# 	print(po, po_conv)
-
+	
 	time_cont = np.linspace(time_range[0], time_range[1], 1000)
+	bin_width = np.round(bin_edges[1]-bin_edges[0], 2)
 	
 	fig, ax = newfig()
-	pl.semilogy(time, hist, '.g')
-	pl.semilogy(time, hist_bg, '.k')
-	pl.semilogy(time, hist_raw, '.r')
-	pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
-	pl.semilogy(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-g')
+	pl.semilogy(time, hist, '.k')
+	pl.semilogy(time, hist_bg, marker='.', linestyle='None', color='#C83C80')
+	pl.errorbar(time, hist, yerr=errors, fmt=',k', capsize=0)
+	pl.semilogy(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-k')
+	ax.fill_between(time_cont, 1e-4, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), facecolor='#F8E85E')
 	pl.xlabel(r'Decay time [ps]')
-# 	ax.set_ylim(1e-2, 1e4)
+	pl.ylabel(r'Number of decays / $' + str(bin_width) + '$ps')
+	ax.set_ylim(1e-4, 1.25e5 if is_latex else 1.2e4)
 	ax.set_xlim(time_range)
 	savefig('decay-fitted')
 	pl.close()
 
 	fig, ax = newfig()
-	pl.plot(time, hist, '.g')
-	pl.plot(time, hist_bg, '.k')
-	pl.plot(time, hist_raw, '.r')
-	pl.errorbar(time, hist, yerr=errors, fmt=',r', capsize=0)
-	pl.plot(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-g')
+	pl.plot(time, hist, '.k')
+	pl.plot(time, hist_bg, marker='.', linestyle='None', color='#C83C80')
+	pl.errorbar(time, hist, yerr=errors, fmt=',k', capsize=0)
+	pl.plot(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-k')
+	ax.fill_between(time_cont, 1e-4, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), facecolor='#F8E85E')
 	ax.set_xlim(time_range[0], 4)
+	ax.set_ylim(1e-4, 1.25e5 if is_latex else 1.2e4)
 	pl.xlabel(r'Decay time [ps]')
+	pl.ylabel(r'Number of decays / $' + str(bin_width) + '$ps')
 	savefig('decay')
 	pl.close()
-	
-# 	newfig()
-# 	pl.plot(time, hist, ',r')
-# 	pl.plot(time, convoluted_exponential(time, *[4000, tau_elimination, .9297596, -2]), '-b')
-# 	pl.xlabel(r'Decay time [ps]')
-# 	savefig('decay-BACKGROUNDSIUBTR')
-# 	pl.close()
-
 	
 	with open("data.txt", "w") as text_file:
 	    text_file.write("lifetime_bgreduction=%s\n" % np.round(tau_elimination*1e3, 1))
@@ -474,8 +467,8 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 	
 	if fit:
 		masses_continuous = np.arange(m_pi, masses[-1], .02)
-		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-g')
-# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * po[7], po[5], po[4]), '-k')
+		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-r')
+		ax.plot(masses_continuous, double_gaussian(masses_continuous, *po[3:]), '-k')
 # 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[7]), po[6], po[4]), '-k')
 		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:3]), facecolor='blue', edgecolor="None", alpha=0.35)
 		
