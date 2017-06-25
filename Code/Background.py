@@ -2,6 +2,8 @@ import scipy.optimize as spo
 import scipy.integrate as spi
 import numpy as np
 import scipy.special as sse
+import locale
+locale.setlocale(locale.LC_ALL, 'en_US')
 
 # constants
 from scipy.constants import c, hbar, physical_constants
@@ -78,3 +80,6 @@ def write_out():
 
 def add_val(name, val, round_to=1):
 	write_list.append(Record(name, np.round(val, round_to)))
+
+def add_int(name, d):
+	write_list.append(Record(name, locale.format("%d", d, grouping=True)))

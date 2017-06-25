@@ -11,7 +11,7 @@ from Background import *
 from style import *
 
 
-def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
+def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width, dm_uncert=None):
 
 	np.save('fitting_FULLSET.npy', full_set)
 # 	np.save('fitting_AFTERPO.npy', after_po)
@@ -21,7 +21,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	print(range_low, range_up)
 
 	fit_range = (0, 10)
-	pdf_gaussian_width = 1./7.
+	pdf_gaussian_width = 1./7.5
 
 	data = [event for event in full_set if fit_range[0] <= event.decayTime*1e-12 <= fit_range[1]]
 
@@ -37,8 +37,9 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	def negative_log_likelihood(tau, ts, mdiffs): #ts, mdiffs are the events' times and mass diffs, l is lifetime
 		normalisation = normalisation_const(convoluted_exponential, fit_range, (1, tau, pdf_gaussian_width))
 		aaa = [(1 if range_low <= md <= range_up else wb) * np.log(pdf(x, tau, normalisation)) for x, md in zip(ts, mass_diffs)]
-		print(-sum(aaa), tau)
-		return -sum(aaa)
+		s = -sum(aaa)
+		print(s, tau)
+		return s
 
 	def D_Dtau(tau_x, ts, mdiffs): #first derivative wrt tau
 		return derivative(negative_log_likelihood, tau_x, args=(times, mdiffs), dx=1e-5)
@@ -61,10 +62,12 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	tau_f = Newton_Raphson_tau(0.4)
 	print('tau', tau_f, np.mean(times))
 
-	newfig()
+	newfig(0.65)
 	x = np.linspace(.25, .65, 100)
 	A = normalisation_const(convoluted_exponential, fit_range, (1, tau_f, pdf_gaussian_width))
 	pl.plot(x, [negative_log_likelihood(x, times, mass_diffs) for x in x])
+	pl.xlabel(r'$\tau$ [ps]')
+	pl.ylabel(r'$- \log{\mathcal{L}}$')
 	savefig('L vs tau')
 
 	likelyhood = negative_log_likelihood(tau_f, times, mass_diffs)

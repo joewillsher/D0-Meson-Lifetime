@@ -276,32 +276,33 @@ class CandidateEvent(object):
 # reads a file and returns the D0 candidate events it lists
 # - expects the file to have specific col titles, returns None if there is an error
 def readFile(name: Text):
-    with open(cwd+'/'+name, 'r') as csvfile:
-    	# get the rows from the file
-        rows = csv.reader(csvfile, delimiter=' ', quotechar='|') #creates array of array: each array is a row.
+	print(name)
+	with open(cwd+'/'+name, 'r') as csvfile:
+		# get the rows from the file
+		rows = csv.reader(csvfile, delimiter=' ', quoting=csv.QUOTE_NONE) #creates array of array: each array is a row.
 
-        # take the first element of the generator as the header
-        header = next(rows)
-        print(header)
-        # store the candidates here
-        cands = []
+		# take the first element of the generator as the header
+		header = next(rows)
+		print(header)
+		# store the candidates here
+		cands = []
 
 		# ignore the coordinate, remove the last '_X'/'_PX' part in the header name
-        header_raw_names = ['_'.join(name.split('_')[:-1]) for name in header[::3]]
-        order = ['Dstar_OWNPV', 'Dstar_ENDVERTEX', 'D_ENDVERTEX', 'B_ENDVERTEX', 'K', 'Pd', 'Ps']
-        print('names', header_raw_names)
-        # get the indicies of these params in the row
-        elementIdxs = [header_raw_names.index(x) for x in order]
-        print(elementIdxs)
+		header_raw_names = ['_'.join(name.split('_')[:-1]) for name in header[::3]]
+		order = ['Dstar_OWNPV', 'Dstar_ENDVERTEX', 'D_ENDVERTEX', 'B_ENDVERTEX', 'K', 'Pd', 'Ps']
+		print('names', header_raw_names)
+		# get the indicies of these params in the row
+		elementIdxs = [header_raw_names.index(x) for x in order]
+		print(elementIdxs)
 
-        for row in rows:
-        	# reshape row into several 3-vectors
-        	nums = [float(x) for x in row[:-1]] # remove Dstar_FD ([:-1]) bc scalars don't work
-        	data = np.reshape(np.array(nums), (len(nums)//3, int(3)))
-        	cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]], data[elementIdxs[6]])
-        	cands.append(cand)
+		for row in rows:
+			# reshape row into several 3-vectors
+			nums = [float(x) for x in row[:-1]] # remove Dstar_FD ([:-1]) bc scalars don't work
+			data = np.reshape(np.array(nums), (len(nums)//3, int(3)))
+			cand = CandidateEvent(data[elementIdxs[0]], data[elementIdxs[1]], data[elementIdxs[2]], data[elementIdxs[3]], data[elementIdxs[4]], data[elementIdxs[5]], data[elementIdxs[6]])
+			cands.append(cand)
 
-        return cands
+		return cands
 
 
 def plotData(data):
@@ -396,17 +397,17 @@ def calculateLifetime(data, bg, deltamass_po, dm_binwidth, deltamass_peak_width)
 	ax.set_xlim(time_range[0], 4)
 	ax.set_ylim(1e-4, 1.25e5 if is_latex else 1.2e4)
 	pl.xlabel(r'Decay time [ps]')
-	pl.ylabel(r'Number of decays / $' + str(bin_width) + '$ps')
+	pl.ylabel(r'Number of decays / $' + str(bin_width) + '/,$ps')
 	savefig('decay')
 	pl.close()
 
 	add_val('lifetime_bgreduction', tau_elimination*1e3)
 	add_val('error_bgreduction', tau_elimination_err*1e3)
-	add_val('wb', wb*1e3)
+	add_val('wb', wb, 3)
 	add_val('range_low', range_low)
 	add_val('range_up', range_up)
-	add_val('bg_integral', bg_integral)
-	add_val('sig_integral', sig_integral)
+	add_int('bg_integral', bg_integral)
+	add_int('sig_integral', sig_integral)
 	add_val('bg_fraction', bg_fraction*100)
 
 
@@ -457,23 +458,21 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=([0, .25, 139, 0, 0, 0, 0, 0], [np.inf, .33, 140, np.inf, np.inf, 1, 5, np.inf]))
 		print('po-fit', po)
 
-	fig = newrawfig(width=2)
-	margin = .1
+	fig = newrawfig(width=.65)
+	margin = .16
 	out_margin = .02
-	subpl_height = .25
+	subpl_height = .35
 	width, height = 1, 1
 	# x_l, x_b, w, h
-	ax = fig.add_axes([margin, subpl_height, width-margin-out_margin, height-subpl_height-margin])
+	ax = fig.add_axes([margin, subpl_height, width-margin-out_margin, height-subpl_height-margin/2])
 	ax.axes.get_xaxis().set_visible(False)
-	ax.plot(masses, hist, '.r')
-	ax.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
+	ax.plot(masses, hist, '.b')
 
 	if fit:
 		masses_continuous = np.arange(m_pi, masses[-1], .02)
-		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-r')
+		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-b')
 		ax.plot(masses_continuous, double_gaussian(masses_continuous, *po[3:]), '-k')
-# 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[7]), po[6], po[4]), '-k')
-		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:3]), facecolor='blue', edgecolor="None", alpha=0.35)
+		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:3]), facecolor='#C83C80', edgecolor="None")
 
 		pull_ax = fig.add_axes([margin, margin, width-margin-out_margin, subpl_height-margin])
 		pulls = (hist-combined_fit(masses, *po))/errors
@@ -486,14 +485,14 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 		pull_ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
 
 		for tick in pull_ax.yaxis.get_major_ticks():
-			tick.label.set_fontsize(6)
+			tick.label.set_fontsize(5 if is_latex else 6)
 
 		fig.set_tight_layout(True)
 	else:
 		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
 
 	ax.set_xlim(range)
-	ax.set_ylabel(r'Relative frequency')
+	ax.set_ylabel(r'Decays / $%s$ GeV/$c^2$' % np.round(bin_width, 2))
 	savefig('cut-fitted'+ext_name)
 	pl.close()
 	return po if fit else [], bin_width

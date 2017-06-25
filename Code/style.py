@@ -60,6 +60,10 @@ if is_latex:
 		return fig, ax
 
 	def savefig(filename, directory=''):
+		pl.savefig(directory+filename+'.pgf')
+		pl.savefig(directory+filename+'.png')
+
+	def savefig_image(filename, directory=''):
 		pl.savefig(directory+filename+'.pgf', dpi=4000)
 		pl.savefig(directory+filename+'.png')
 else:
@@ -79,6 +83,9 @@ else:
 
 	def savefig(filename, directory=''):
 		pl.savefig(directory+filename+'.png')
+
+	def savefig_image(filename, directory=''):
+		savefig(filename, directory)
 
 
 # # Simple plot

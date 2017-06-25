@@ -13,12 +13,6 @@ def cut(accepted, rejected, cond):
 
 #get data
 data = readFile('np.txt' if '--full-set' in sys.argv else 'np-short.txt')
-output = []
-d = data[0]
-print(d)
-mass, time = d.reconstructedD0Mass, d.decayTime
-print('mass', mass, mass*1e-6*c**2 / e, time, time*1e15)
-
 # cut on mass diff
 width = 3.
 signal_region, background_sidebands, po_fullset, bin_width = cutEventSet_massDiff(data, width)
@@ -27,8 +21,8 @@ rejected = []
 print(len(data))
 bg_integral, sig_integral, bg_fraction = estimate_background(po_fullset, filtered, bin_width, width)
 
-add_val('bg_integral_before', bg_integral)
-add_val('sig_integral_before', sig_integral)
+add_int('bg_integral_before', bg_integral)
+add_int('sig_integral_before', sig_integral)
 add_val('bg_fraction_before', bg_fraction*100)
 
 fig, ax = newfig()
@@ -40,7 +34,7 @@ pl.xlabel(r'$\Delta m$ [MeV$/c^2$]')
 pl.ylabel(r'$m_{D^0}$ [GeV$/c^2$]')
 ax.set_xlim(139, 170)
 ax.set_ylim(1.79, 1.94)
-savefig('mass-diff-hist', directory='../report/' if is_latex else '')
+savefig_image('mass-diff-hist', directory='../report/' if is_latex else '')
 pl.close()
 
 fig, ax = newfig()
@@ -54,72 +48,73 @@ pl.close()
 
 
 
-if not '--no-plot' in sys.argv:
-	print('plot')
-
-	massDiff_plot(data, ext_name='-KK', fit=False, methodName='reconstructedD0Mass_kk', range=None)
-	massDiff_plot(data, ext_name='-PP', fit=False, methodName='reconstructedD0Mass_pp', range=None)
-
-	newfig()
-	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pD0_t for f in signal_region], ',g')
-	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pD0_t for f in background_sidebands], ',r')
-	savefig('dm-pD0_t-correlation')
-	pl.close()
-
-	newfig()
-	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pPslow for f in signal_region], ',g')
-	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pPslow for f in background_sidebands], ',r')
-	savefig('dm-pPslow-correlation')
-	pl.close()
-
-	newfig()
-	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pPslow_t for f in signal_region], ',g')
-	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pPslow_t for f in background_sidebands], ',r')
-	savefig('dm-pPslow_t-correlation')
-	pl.close()
-
-	fig, ax = newfig()
-	pl.semilogy([f.massDiff_d0dstar for f in signal_region if f.decayTime < 20e-12], [f.decayTime*1e12 for f in signal_region if f.decayTime < 20e-12], ',g')
-	pl.semilogy([f.massDiff_d0dstar for f in background_sidebands if f.decayTime < 20e-12], [f.decayTime*1e12 for f in background_sidebands if f.decayTime < 20e-12], ',r')
-	ax.set_ylim(ymin=0.1, ymax=20)
-	savefig('dm-decayTime-correlation')
-	pl.close()
-
-	newfig()
-	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.d0IP_log for f in signal_region], ',g')
-	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.d0IP_log for f in background_sidebands], ',r')
-	savefig('dm-d0IP_log-correlation')
-	pl.close()
-
-
-	plot_compare(signal_region, background_sidebands, 'decayTime', 'decayTime', range=(0, 10e-12), \
-		label=r'Decay time $t$ [ps]')
-	plot_compare(signal_region, background_sidebands, 'pD0_t', 'pd0-t', \
-		label=r'$D^0$ Transverse momentum $p_T$ [GeV / c]')
-	plot_compare(signal_region, background_sidebands, 'pPslow', 'pslow', \
-		label=r'Slow $\pi$ momentum p [GeVp_T / c]')
-	plot_compare(signal_region, background_sidebands, 'pPslow_t', 'pslow-t', \
-		label=r'Slow $\pi$ transverse momentum $p_T$ [GeV / c]')
-	plot_compare(signal_region, background_sidebands, 'pDstar_t', 'dstar-t', \
-		label=r'$D^{*+}$ transverse momentum $p_T$ [GeV / c]')
-	plot_compare(signal_region, background_sidebands, 'pk_t', 'pk-t', \
-		label=r'Daughter $k$ transverse momentum $p_T$ [GeV / c]')
-	plot_compare(signal_region, background_sidebands, 'pp_t', 'pp-t', \
-		label=r'Daughter $\pi$ transverse momentum $p_T$ [GeV / c]')
-
-	plot_compare(signal_region, background_sidebands, 'd0IP_log', 'd0-impact-parameter', \
-		label=r'$\log{\left(IP_{D^0} / \mathrm{mm}\right)}$')
-	plot_compare(signal_region, background_sidebands, 'kIP_log', 'k-impact-parameter', \
-		label=r'$\log{\left(IP_{k} / \mathrm{mm}\right)}$')
-	plot_compare(signal_region, background_sidebands, 'pIP_log', 'p-impact-parameter', \
-		label=r'$\log{\left(IP_{\pi} / \mathrm{mm}\right)}$')
-	plot_compare(signal_region, background_sidebands, 'psIP_log', 'ps-impact-parameter', \
-		label=r'$\log{\left(IP_{\pi_s} / \mathrm{mm}\right)}$')
-
-	plot_compare(signal_region, background_sidebands, 's_z', 's_z', range=(-200, 200), \
-		label=r'$s_z$ [mm]')
-	plot_compare(signal_region, background_sidebands, 'costheta', 'costheta', range=(.999,1), \
-		label=r'$\cos{\theta}$')
+# if not '--no-plot' in sys.argv:
+# 	print('plot')
+#
+# 	massDiff_plot(data, ext_name='-KK', fit=False, methodName='reconstructedD0Mass_kk', range=None)
+# 	massDiff_plot(data, ext_name='-PP', fit=False, methodName='reconstructedD0Mass_pp', range=None)
+#
+# 	newfig()
+# 	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pD0_t for f in signal_region], ',g')
+# 	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pD0_t for f in background_sidebands], ',r')
+# 	savefig('dm-pD0_t-correlation')
+# 	pl.close()
+#
+#
+# 	newfig()
+# 	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pPslow for f in signal_region], ',g')
+# 	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pPslow for f in background_sidebands], ',r')
+# 	savefig('dm-pPslow-correlation')
+# 	pl.close()
+#
+# 	newfig()
+# 	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.pPslow_t for f in signal_region], ',g')
+# 	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.pPslow_t for f in background_sidebands], ',r')
+# 	savefig('dm-pPslow_t-correlation')
+# 	pl.close()
+#
+# 	fig, ax = newfig()
+# 	pl.semilogy([f.massDiff_d0dstar for f in signal_region if f.decayTime < 20e-12], [f.decayTime*1e12 for f in signal_region if f.decayTime < 20e-12], ',g')
+# 	pl.semilogy([f.massDiff_d0dstar for f in background_sidebands if f.decayTime < 20e-12], [f.decayTime*1e12 for f in background_sidebands if f.decayTime < 20e-12], ',r')
+# 	ax.set_ylim(ymin=0.1, ymax=20)
+# 	savefig('dm-decayTime-correlation')
+# 	pl.close()
+#
+# 	newfig()
+# 	pl.plot([f.massDiff_d0dstar for f in signal_region], [f.d0IP_log for f in signal_region], ',g')
+# 	pl.plot([f.massDiff_d0dstar for f in background_sidebands], [f.d0IP_log for f in background_sidebands], ',r')
+# 	savefig('dm-d0IP_log-correlation')
+# 	pl.close()
+#
+#
+# 	plot_compare(signal_region, background_sidebands, 'decayTime', 'decayTime', range=(0, 10e-12), \
+# 		label=r'Decay time $t$ [ps]')
+# 	plot_compare(signal_region, background_sidebands, 'pD0_t', 'pd0-t', \
+# 		label=r'$D^0$ Transverse momentum $p_T$ [GeV / c]')
+# 	plot_compare(signal_region, background_sidebands, 'pPslow', 'pslow', \
+# 		label=r'Slow $\pi$ momentum p [GeVp_T / c]')
+# 	plot_compare(signal_region, background_sidebands, 'pPslow_t', 'pslow-t', \
+# 		label=r'Slow $\pi$ transverse momentum $p_T$ [GeV / c]')
+# 	plot_compare(signal_region, background_sidebands, 'pDstar_t', 'dstar-t', \
+# 		label=r'$D^{*+}$ transverse momentum $p_T$ [GeV / c]')
+# 	plot_compare(signal_region, background_sidebands, 'pk_t', 'pk-t', \
+# 		label=r'Daughter $k$ transverse momentum $p_T$ [GeV / c]')
+# 	plot_compare(signal_region, background_sidebands, 'pp_t', 'pp-t', \
+# 		label=r'Daughter $\pi$ transverse momentum $p_T$ [GeV / c]')
+#
+# 	plot_compare(signal_region, background_sidebands, 'd0IP_log', 'd0-impact-parameter', \
+# 		label=r'$\log{\left(IP_{D^0} / \mathrm{mm}\right)}$')
+# 	plot_compare(signal_region, background_sidebands, 'kIP_log', 'k-impact-parameter', \
+# 		label=r'$\log{\left(IP_{k} / \mathrm{mm}\right)}$')
+# 	plot_compare(signal_region, background_sidebands, 'pIP_log', 'p-impact-parameter', \
+# 		label=r'$\log{\left(IP_{\pi} / \mathrm{mm}\right)}$')
+# 	plot_compare(signal_region, background_sidebands, 'psIP_log', 'ps-impact-parameter', \
+# 		label=r'$\log{\left(IP_{\pi_s} / \mathrm{mm}\right)}$')
+#
+# 	plot_compare(signal_region, background_sidebands, 's_z', 's_z', range=(-200, 200), \
+# 		label=r'$s_z$ [mm]')
+#	plot_compare(signal_region, background_sidebands, 'costheta', 'costheta', range=(.999,1), \
+#		label=r'$\cos{\theta}$')
 
 
 print('cut')
@@ -140,12 +135,14 @@ print('cut')
 
 
 
+add_int('num_events_before', len(data))
 # remove width
 d0_c, dstar_c = 1865., 2010.
 meson_mass_width = 30.
 filtered = [event for event in filtered if (d0_c - meson_mass_width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c + meson_mass_width) and (dstar_c - meson_mass_width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c + meson_mass_width)]
 
 after_po, after_bin_width = massDiff_plot(filtered, ext_name='after', bg_ratio=.01)
+add_int('num_events', len(filtered))
 
 print('cut-done')
 
