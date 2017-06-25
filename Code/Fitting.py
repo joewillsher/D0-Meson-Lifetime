@@ -62,7 +62,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width, dm_unce
 	tau_f = Newton_Raphson_tau(0.4)
 	print('tau', tau_f, np.mean(times))
 
-	newfig(0.65)
+	newfig(0.65 if is_latex else 2)
 	x = np.linspace(.25, .65, 100)
 	A = normalisation_const(convoluted_exponential, fit_range, (1, tau_f, pdf_gaussian_width))
 	pl.plot(x, [negative_log_likelihood(x, times, mass_diffs) for x in x])
