@@ -11,11 +11,6 @@ def cut(accepted, rejected, cond):
 
 	return np.array(acc), np.array(rej)
 
-# type Record(object):
-# 	def __init__(self, name, data):
-# 		self.name = name
-# 		self.data = data
-
 #get data
 data = readFile('np.txt' if '--full-set' in sys.argv else 'np-short.txt')
 output = []
@@ -30,8 +25,11 @@ signal_region, background_sidebands, po_fullset, bin_width = cutEventSet_massDif
 filtered = data
 rejected = []
 print(len(data))
-bg_integral, sig_integral, bg_fraction = estimate_background(po_fullset, filtered, width)
+bg_integral, sig_integral, bg_fraction = estimate_background(po_fullset, filtered, bin_width, width)
 
+add_val('bg_integral_before', bg_integral)
+add_val('sig_integral_before', sig_integral)
+add_val('bg_fraction_before', bg_fraction*100)
 
 fig, ax = newfig()
 md = [d.massDiff_d0dstar for d in data]
@@ -155,7 +153,7 @@ print('cut-done')
 
 # massDiff_plot(filtered, 'AFTER', 0)
 plotData(filtered)
-calculateLifetime(filtered, background_sidebands, after_po, width)
+calculateLifetime(filtered, background_sidebands, after_po, after_bin_width, width)
 
 # mass dist
 newfig()
@@ -163,3 +161,6 @@ offs = [d.pPslow for d in filtered]
 pl.hist(offs, bins=100, histtype='step', fill=False)
 savefig('offsets')
 pl.close()
+
+
+write_out()

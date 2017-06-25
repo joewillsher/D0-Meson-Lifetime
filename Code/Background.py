@@ -25,8 +25,8 @@ def normalisation_const(pdf, range, args):
 
 def background_fit(dm, bg_A, bg_p, bg_m):
 	return bg_A * (dm-bg_m)**bg_p
-	
-	
+
+
 signal_fit = double_gaussian
 # 2.07302440e+01   2.98646045e-01   1.77728941e+03   1.45465825e+02		7.79647227e+00  -6.76180865e-01   4.09293926e+00]
 def combined_fit(dm, bg_A, bg_p, bg_m, sig_A, sig_centre, sig_w1, sig_w2, f):
@@ -53,12 +53,28 @@ def calculate_weight(po, filtered, range_low, range_up):
 	return wb
 
 
-def estimate_background(po, filtered, width):
+def estimate_background(po, filtered, bin_width, width):
 	range_low, range_up = get_sig_range(po, width)
-	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]
-	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[3], po[4], po[5], po[6], po[7]))[0]
+	bg_integral = spi.quad(background_fit, range_low, range_up, args=(po[0], po[1], po[2]))[0]/bin_width
+	sig_integral = spi.quad(signal_fit, range_low, range_up, args=(po[3], po[4], po[5], po[6], po[7]))[0]/bin_width
 
 	bg_fraction = bg_integral/(sig_integral + bg_integral)
 
 	print("BACKGROUND EST", bg_integral, len(filtered), str(bg_fraction*100) + "%")
 	return bg_integral, sig_integral, bg_fraction
+
+
+class Record(object):
+	def __init__(self, name, data):
+		self.name = name
+		self.data = data
+
+write_list = []
+
+def write_out():
+	with open("data.txt", "w") as text_file:
+		for d in write_list:
+			text_file.write("%s=%s\n" % (d.name, d.data))
+
+def add_val(name, val, round_to=1):
+	write_list.append(Record(name, np.round(val, round_to)))

@@ -21,7 +21,7 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	print(range_low, range_up)
 
 	fit_range = (0, 10)
-	pdf_gaussian_width = 1./10.
+	pdf_gaussian_width = 1./7.
 
 	data = [event for event in full_set if fit_range[0] <= event.decayTime*1e-12 <= fit_range[1]]
 

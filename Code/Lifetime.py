@@ -344,8 +344,8 @@ def plotData(data):
 	pl.close()
 
 
-def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
-	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, deltamass_peak_width)
+def calculateLifetime(data, bg, deltamass_po, dm_binwidth, deltamass_peak_width):
+	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, dm_binwidth, deltamass_peak_width)
 
 	tau_elimination, tau_elimination_err, wb, pdf_gaussian_width, A = \
 		maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
@@ -391,8 +391,8 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	pl.plot(time, hist, '.k')
 	pl.plot(time, hist_bg, marker='.', linestyle='None', color='#C83C80')
 	pl.errorbar(time, hist, yerr=errors, fmt=',k', capsize=0)
-	pl.plot(time_cont, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), '-k')
-	ax.fill_between(time_cont, 1e-4, convoluted_exponential(time_cont, max(hist)*.7, tau_elimination, pdf_gaussian_width), facecolor='#F8E85E')
+	pl.plot(time_cont, convoluted_exponential(time_cont, max(hist)*.73, tau_elimination, pdf_gaussian_width), '-k')
+	ax.fill_between(time_cont, 1e-4, convoluted_exponential(time_cont, max(hist)*.73, tau_elimination, pdf_gaussian_width), facecolor='#F8E85E')
 	ax.set_xlim(time_range[0], 4)
 	ax.set_ylim(1e-4, 1.25e5 if is_latex else 1.2e4)
 	pl.xlabel(r'Decay time [ps]')
@@ -400,11 +400,14 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	savefig('decay')
 	pl.close()
 
-	with open("data.txt", "w") as text_file:
-	    text_file.write("lifetime_bgreduction=%s\n" % np.round(tau_elimination*1e3, 1))
-	    text_file.write("error_bgreduction=%s\n" % np.round(tau_elimination_err*1e3, 1))
-
-
+	add_val('lifetime_bgreduction', tau_elimination*1e3)
+	add_val('error_bgreduction', tau_elimination_err*1e3)
+	add_val('wb', wb*1e3)
+	add_val('range_low', range_low)
+	add_val('range_up', range_up)
+	add_val('bg_integral', bg_integral)
+	add_val('sig_integral', sig_integral)
+	add_val('bg_fraction', bg_fraction*100)
 
 
 
