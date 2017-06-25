@@ -59,9 +59,9 @@ if is_latex:
 		ax = fig.add_subplot(111)
 		return fig, ax
 
-	def savefig(filename):
-		pl.savefig(filename+'.pgf')
-		pl.savefig(filename+'.png')
+	def savefig(filename, directory=''):
+		pl.savefig(directory+filename+'.pgf', dpi=4000)
+		pl.savefig(directory+filename+'.png')
 else:
 
 	default_width = 2
@@ -77,8 +77,8 @@ else:
 		fig = pl.figure(figsize=figsize(width, height_adj))
 		return fig
 
-	def savefig(filename):
-		pl.savefig('{}.png'.format(filename))
+	def savefig(filename, directory=''):
+		pl.savefig(directory+filename+'.png')
 
 
 # # Simple plot
@@ -89,7 +89,7 @@ else:
 #     for t in range(1, len(y)):
 #     	s.append(a * y[t] + (1-a) * s[t-1])
 #     return np.array(s)
-# 
+#
 # y = [0]*200
 # y.extend([20]*(1000-len(y)))
 # s = ema(y, 0.01)

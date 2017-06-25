@@ -88,7 +88,7 @@ class CandidateEvent(object):
 	def pDstar_t(self):
 		pcomps_d0 = self.kp+self.pd+self.ps # in MeV
 		return magnitude(pcomps_d0[0:1])
-	
+
 	@lazy_property.LazyProperty
 	def pPslow(self):
 		return magnitude(self.ps)
@@ -96,7 +96,7 @@ class CandidateEvent(object):
 	@lazy_property.LazyProperty
 	def pPslow_t(self):
 		return magnitude(self.ps[0:1])
-	
+
 	@lazy_property.LazyProperty
 	def pD0(self):
 		pcomps_d0 = self.kp+self.pd # in MeV
@@ -135,7 +135,7 @@ class CandidateEvent(object):
 	def daughterEnergy_kk(self):
 		return self.get_daughterEnergy(m_k, m_k)
 
-	
+
 	def get_reconstructedMass(self, daughterEnergy):
 		return np.sqrt(daughterEnergy**2 - (self.pD0*c)**2)/c**2
 
@@ -230,7 +230,7 @@ class CandidateEvent(object):
 		x = (self.d0Decay - self.dstarDecay)*1e-3
 		p = normed(momentum_toSI(self.kp+self.pd))
 		return np.log10(magnitude(x - dot(x,p) * p)*1e3)
-	
+
 	@lazy_property.LazyProperty
 	def kIP_log(self):
 		x = (self.d0Decay - self.dstarDecay)*1e-3
@@ -265,8 +265,8 @@ class CandidateEvent(object):
 	def costheta(self):
 		p, r = self.kp+self.pd, self.d0Decay-self.dstarDecay
 		return dot(p/magnitude(p), r/magnitude(r))
-		
-		
+
+
 
 
 
@@ -346,10 +346,10 @@ def plotData(data):
 
 def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	bg_integral, sig_integral, bg_fraction = estimate_background(deltamass_po, data, deltamass_peak_width)
-	
+
 	tau_elimination, tau_elimination_err, wb, pdf_gaussian_width, A = \
 		maximum_likelyhood_exp_fit(data, deltamass_po, deltamass_peak_width)
-	
+
 	time_range, bin_num = (-.4, 10), 75 if is_latex else 100
 
 	filtered = [d for d in data if time_range[0] <= d.decayTime*1e12 < time_range[1]]
@@ -363,17 +363,17 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 
 
 	# decay time curve
-	hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)	
+	hist, bin_edges = np.histogram(times, bins=bin_num, range=time_range, weights=weights)
 	hist_bg, _ = np.histogram(times, bins=bin_num, range=time_range, weights=bg_weights)
-	hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)	
+	hist_raw, _ = np.histogram(times, bins=bin_num, range=time_range)
 
 	sy = np.histogram(times, bins=bin_edges, weights=times)[0]
 	time = np.array([(e1+e2)/2 if n == 0 else t/n for t, n, e1, e2 in zip(sy, hist_raw, bin_edges[1:], bin_edges[:-1])])
 	errors = [x*.9999999999 if x <= 1 else np.sqrt(x) for x in hist-.0000000001]
-	
+
 	time_cont = np.linspace(time_range[0], time_range[1], 1000)
 	bin_width = np.round(bin_edges[1]-bin_edges[0], 2)
-	
+
 	fig, ax = newfig()
 	pl.semilogy(time, hist, '.k')
 	pl.semilogy(time, hist_bg, marker='.', linestyle='None', color='#C83C80')
@@ -399,7 +399,7 @@ def calculateLifetime(data, bg, deltamass_po, deltamass_peak_width):
 	pl.ylabel(r'Number of decays / $' + str(bin_width) + '$ps')
 	savefig('decay')
 	pl.close()
-	
+
 	with open("data.txt", "w") as text_file:
 	    text_file.write("lifetime_bgreduction=%s\n" % np.round(tau_elimination*1e3, 1))
 	    text_file.write("error_bgreduction=%s\n" % np.round(tau_elimination_err*1e3, 1))
@@ -414,10 +414,10 @@ def plot_compare(accepted, rejected, prop, name, range=None, label=None):
 	diffs_a, diffs_r = [getattr(d, prop) for d in accepted], [getattr(d, prop) for d in rejected]
 	fig, ax = newfig()
 	pl.yscale('log')
-	
+
 	acc = pl.hist(diffs_a, 100, facecolor='g', histtype='step', range=range, label='accepted')
 	rej = pl.hist(diffs_r, 100, facecolor='r', histtype='step', range=range, label='rejected')
-		
+
 	if label:
 		pl.xlabel(label)
 	pl.ylabel(r'Relative frequency')
@@ -449,11 +449,11 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 	# https://suchideas.com/articles/maths/applied/histogram-errors/
 	errors = np.sqrt(hist)
 	x_errors = np.repeat(bin_width/2, len(errors))
-	
-	if fit:	
+
+	if fit:
 		po, po_cov = spo.curve_fit(combined_fit, masses, hist, initial, sigma=errors, bounds=([0, .25, 139, 0, 0, 0, 0, 0], [np.inf, .33, 140, np.inf, np.inf, 1, 5, np.inf]))
 		print('po-fit', po)
-	
+
 	fig = newrawfig(width=2)
 	margin = .1
 	out_margin = .02
@@ -464,31 +464,31 @@ def massDiff_plot(events, ext_name='', fit=True, bg_ratio=0.15, range=(139, 165)
 	ax.axes.get_xaxis().set_visible(False)
 	ax.plot(masses, hist, '.r')
 	ax.errorbar(masses, hist, yerr=errors, fmt=',r', capsize=0)
-	
+
 	if fit:
 		masses_continuous = np.arange(m_pi, masses[-1], .02)
 		ax.plot(masses_continuous, combined_fit(masses_continuous, *po), '-r')
 		ax.plot(masses_continuous, double_gaussian(masses_continuous, *po[3:]), '-k')
 # 		ax.plot(masses_continuous, gaussian(masses_continuous, po[2] * (1-po[7]), po[6], po[4]), '-k')
 		ax.fill_between(masses_continuous, 0, background_fit(masses_continuous, *po[:3]), facecolor='blue', edgecolor="None", alpha=0.35)
-		
+
 		pull_ax = fig.add_axes([margin, margin, width-margin-out_margin, subpl_height-margin])
 		pulls = (hist-combined_fit(masses, *po))/errors
 		print(pulls)
 		pull_ax.bar(masses, pulls, bin_width, edgecolor="None")
 		pull_ax.set_xlim(range)
 # 		pull_ax.set_ylim(-5,5)
-			
+
 		pull_ax.set_ylabel(r'Pull')
 		pull_ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
-		
+
 		for tick in pull_ax.yaxis.get_major_ticks():
 			tick.label.set_fontsize(6)
 
 		fig.set_tight_layout(True)
 	else:
 		ax.set_xlabel(r'$\Delta m$ [GeV/$c^2$]')
-	
+
 	ax.set_xlim(range)
 	ax.set_ylabel(r'Relative frequency')
 	savefig('cut-fitted'+ext_name)

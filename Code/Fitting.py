@@ -16,21 +16,21 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 	np.save('fitting_FULLSET.npy', full_set)
 # 	np.save('fitting_AFTERPO.npy', after_po)
 # 	np.save('fitting_WIDTH.npy', [deltamass_peak_width])
-	
+
 	range_low, range_up = get_sig_range(after_po, deltamass_peak_width)
 	print(range_low, range_up)
-	
+
 	fit_range = (0, 10)
 	pdf_gaussian_width = 1./10.
-	
+
 	data = [event for event in full_set if fit_range[0] <= event.decayTime*1e-12 <= fit_range[1]]
 
 	wb = calculate_weight(after_po, data, range_low, range_up)
-		
+
 	times = [d.decayTime*1e12 for d in data] #decay times considered from data
 	mass_diffs = [event.massDiff_d0dstar for event in data] #decay times considered from data
-	
-	
+
+
 	def pdf(ti, tau, A):
 		return convoluted_exponential(ti, A, tau, pdf_gaussian_width)
 
@@ -60,15 +60,15 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 
 	tau_f = Newton_Raphson_tau(0.4)
 	print('tau', tau_f, np.mean(times))
-	
+
 	newfig()
 	x = np.linspace(.25, .65, 100)
 	A = normalisation_const(convoluted_exponential, fit_range, (1, tau_f, pdf_gaussian_width))
 	pl.plot(x, [negative_log_likelihood(x, times, mass_diffs) for x in x])
 	savefig('L vs tau')
-	
+
 	likelyhood = negative_log_likelihood(tau_f, times, mass_diffs)
-	
+
 	#statistical uncertainty calculations
 	def Neg_Log_1(tau): #Neg Log likelihood shifted by a threshold
 		return negative_log_likelihood(tau, times, mass_diffs) - likelyhood - .5
@@ -78,11 +78,10 @@ def maximum_likelyhood_exp_fit(full_set, after_po, deltamass_peak_width):
 			x_n = x - Neg_Log_1(x)/D_Dtau(x, times, mass_diffs)
 			x=x_n
 		return x
-	
+
 	x_1 = Newton_Raphson_uncertainty(tau_f - 0.01)
 	x_2 = Newton_Raphson_uncertainty(tau_f + 0.01)
 	S = np.abs(x_1 - x_2)/2
-	
+
 	print('lifetime ', tau_f, '+- ', S, ' ps')
 	return tau_f, S, wb, pdf_gaussian_width, A
-

@@ -1,4 +1,5 @@
 from Lifetime import *
+from matplotlib.colors import LogNorm
 
 def cut(accepted, rejected, cond):
 	acc, rej = [], list(rejected)
@@ -10,8 +11,14 @@ def cut(accepted, rejected, cond):
 
 	return np.array(acc), np.array(rej)
 
+# type Record(object):
+# 	def __init__(self, name, data):
+# 		self.name = name
+# 		self.data = data
+
 #get data
 data = readFile('np.txt' if '--full-set' in sys.argv else 'np-short.txt')
+output = []
 d = data[0]
 print(d)
 mass, time = d.reconstructedD0Mass, d.decayTime
@@ -24,6 +31,28 @@ filtered = data
 rejected = []
 print(len(data))
 bg_integral, sig_integral, bg_fraction = estimate_background(po_fullset, filtered, width)
+
+
+fig, ax = newfig()
+md = [d.massDiff_d0dstar for d in data]
+d0 = [mass_toMeV(d.reconstructedD0Mass)/1000 for d in data]
+pl.hist2d(md, d0, bins=150 if is_latex else 200, norm=LogNorm())
+pl.colorbar()
+pl.xlabel(r'$\Delta m$ [MeV$/c^2$]')
+pl.ylabel(r'$m_{D^0}$ [GeV$/c^2$]')
+ax.set_xlim(139, 170)
+ax.set_ylim(1.79, 1.94)
+savefig('mass-diff-hist', directory='../report/' if is_latex else '')
+pl.close()
+
+fig, ax = newfig()
+d0 = [mass_toMeV(d.reconstructedD0Mass)/1000 for d in data]
+pl.hist(d0, bins=150 if is_latex else 200)
+pl.xlabel(r'$m_{D^0}$ [GeV$/c^2$]')
+# pl.ylabel(r'$m_{D^0}$ [GeV$/c^2$]')
+ax.set_xlim(1.79, 1.94)
+savefig('mass-d0-hist', directory='../report/' if is_latex else '')
+pl.close()
 
 
 
@@ -88,7 +117,7 @@ if not '--no-plot' in sys.argv:
 		label=r'$\log{\left(IP_{\pi} / \mathrm{mm}\right)}$')
 	plot_compare(signal_region, background_sidebands, 'psIP_log', 'ps-impact-parameter', \
 		label=r'$\log{\left(IP_{\pi_s} / \mathrm{mm}\right)}$')
-	
+
 	plot_compare(signal_region, background_sidebands, 's_z', 's_z', range=(-200, 200), \
 		label=r'$s_z$ [mm]')
 	plot_compare(signal_region, background_sidebands, 'costheta', 'costheta', range=(.999,1), \
@@ -110,20 +139,22 @@ print('cut')
 # filtered, rejected = cut(filtered, rejected, lambda d:  20 <= d.s_z <= 120)
 # filtered, rejected = cut(filtered, rejected, lambda d:  .9995 <= d.costheta or d.costheta <= -.9995)
 
-print('cut-done')
 
-after_po, after_bin_width = massDiff_plot(filtered, ext_name='after', bg_ratio=.01)
 
 
 # remove width
 d0_c, dstar_c = 1865., 2010.
-meson_mass_width = 20.
+meson_mass_width = 30.
 filtered = [event for event in filtered if (d0_c - meson_mass_width) <= mass_toMeV(event.reconstructedD0Mass) <= (d0_c + meson_mass_width) and (dstar_c - meson_mass_width) <= mass_toMeV(event.reconstructedDstarMass) <= (dstar_c + meson_mass_width)]
+
+after_po, after_bin_width = massDiff_plot(filtered, ext_name='after', bg_ratio=.01)
+
+print('cut-done')
 
 
 
 # massDiff_plot(filtered, 'AFTER', 0)
-plotData(filtered)	
+plotData(filtered)
 calculateLifetime(filtered, background_sidebands, after_po, width)
 
 # mass dist
